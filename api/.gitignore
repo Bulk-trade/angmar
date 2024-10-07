@@ -1,0 +1,13 @@
+*.env
+
+pools.json
+
+#logs
+logs/
+
+# Dependency directories
+node_modules/
+
+dist
+# Sentry Config File
+.sentryclirc
