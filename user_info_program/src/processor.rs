@@ -1,4 +1,4 @@
-use crate::error::ReviewError;
+use crate::error::InfoError;
 use crate::instruction::VaultInstruction;
 use crate::state::VaultAccountState;
 use borsh::BorshSerialize;
@@ -95,7 +95,7 @@ pub fn add_user_info(
         1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
     if total_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
-        return Err(ReviewError::InvalidDataLength.into());
+        return Err(InfoError::InvalidDataLength.into());
     }
 
     let account_len: usize = 1000;
@@ -191,13 +191,13 @@ pub fn update_user_info(
     );
     if pda != *pda_account.key {
         msg!("Invalid seeds for PDA");
-        return Err(ReviewError::InvalidPDA.into());
+        return Err(InfoError::InvalidPDA.into());
     }
 
     msg!("checking if user account is initialized");
     if !account_data.is_initialized() {
         msg!("Account is not initialized");
-        return Err(ReviewError::UninitializedAccount.into());
+        return Err(InfoError::UninitializedAccount.into());
     }
 
     // if rating > 5 || rating < 1 {
@@ -209,7 +209,7 @@ pub fn update_user_info(
         1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
     if update_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
-        return Err(ReviewError::InvalidDataLength.into());
+        return Err(InfoError::InvalidDataLength.into());
     }
 
     msg!("UserInfo before update:");
