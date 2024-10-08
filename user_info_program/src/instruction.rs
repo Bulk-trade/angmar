@@ -4,13 +4,13 @@ use solana_program::program_error::ProgramError;
 pub enum VaultInstruction {
     AddUserInfo {
         user_pubkey: String,
-        amount: u32,
+        amount: f32,
         fund_status: String,
         bot_status: String,
     },
     UpdateUserInfo {
         user_pubkey: String,
-        amount: u32,
+        amount: f32,
         fund_status: String,
         bot_status: String,
     },
@@ -19,7 +19,7 @@ pub enum VaultInstruction {
 #[derive(BorshDeserialize)]
 struct UserInfoPayload {
     user_pubkey: String,
-    amount: u32,
+    amount: f32,
     fund_status: String,
     bot_status: String,
 }

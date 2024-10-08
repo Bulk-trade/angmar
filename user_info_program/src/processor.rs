@@ -56,7 +56,7 @@ pub fn add_user_info(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     user_pubkey: String,
-    amount: u32,
+    amount: f32,
     fund_status: String,
     bot_status: String,
 ) -> ProgramResult {
@@ -153,7 +153,7 @@ pub fn update_user_info(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
     user_pubkey: String,
-    amount: u32,
+    amount: f32,
     fund_status: String,
     bot_status: String,
 ) -> ProgramResult {

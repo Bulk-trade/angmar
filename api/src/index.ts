@@ -1,145 +1,116 @@
 // Client
+import express from 'express';
 import {
     Keypair,
     Connection,
     PublicKey,
-    Transaction,
-    TransactionInstruction,
-    SystemProgram,
     LAMPORTS_PER_SOL,
-    clusterApiUrl,
-    sendAndConfirmTransaction,
 } from "@solana/web3.js";
-import { struct, u8, str, u32 } from "@coral-xyz/borsh";
-import { writeFileSync } from "fs";
 import dotenv from "dotenv";
 import {
     initializeKeypair,
-    addKeypairToEnvFile,
 } from "@solana-developers/helpers";
+import cors from 'cors';
+import { addUserInfo, readUserInfo, updateUserInfo } from './pda';
 
 dotenv.config();
 
+const app = express();
+app.use(express.json());
+// Enable CORS
+app.use(cors());
 
-const vaultInstructionLayout = struct([
-    u8("variant"),
-    str("user_pubkey"),
-    u32("amount"),
-    str("fund_status"),
-    str("bot_status"),
-]);
 
-async function updateUserInfo(
-    signer: Keypair,
-    programId: PublicKey,
-    connection: Connection
-) {
-    let buffer = Buffer.alloc(1000);
-    const pubKey = signer.publicKey.toString().slice(0, 32); // Truncate to 32 bytes
-    vaultInstructionLayout.encode(
-        {
-            variant: 1,
-            user_pubkey: pubKey,
-            amount: Math.random() * 1000,
-            fund_status: 'Deposited',
-            bot_status: 'Active',
-        },
-        buffer
-    );
 
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+const connection = new Connection("http://localhost:8899", "confirmed");
 
-    const [pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
-        programId
-    );
 
-    console.log("PDA is:", pda.toBase58());
+app.post('/deposit', async (req, res) => {
+    try {
+        const { user_pubkey, amount, signature } = req.body;
 
-    const transaction = new Transaction();
+        console.log(user_pubkey, amount, signature)
 
-    const instruction = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
-    });
+        //Confirm txn before going forward
+        // const blockhash = await connection.getLatestBlockhash();
+        // await connection.confirmTransaction({
+        //     blockhash: blockhash.blockhash,
+        //     lastValidBlockHeight: blockhash.lastValidBlockHeight,
+        //     signature
+        // });
 
-    transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
-}
+        const roundedAmount = Number(Number(amount).toFixed(6));
 
-async function addUserInfo(
-    signer: Keypair,
-    programId: PublicKey,
-    connection: Connection
-) {
-    let buffer = Buffer.alloc(1000);
-    const pubKey = signer.publicKey.toString().slice(0, 32); // Truncate to 32 bytes
-    vaultInstructionLayout.encode(
-        {
-            variant: 0,
-            user_pubkey: pubKey,
-            amount: Math.random() * 1000,
-            fund_status: 'Nil',
-            bot_status: 'Init',
-        },
-        buffer
-    );
+        console.log(user_pubkey, roundedAmount, signature)
 
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY",
+        });
 
-    const [pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
-        programId
-    );
+        const userInfoProgramId = new PublicKey(
+            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+        );
 
-    console.log("PDA is:", pda.toBase58());
+        const response = await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
 
-    const transaction = new Transaction();
+        if (!response) {
+            await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, roundedAmount);
+        } else {
+            await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, response.amount + roundedAmount);
+            console.log("After Update");
+            await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
+        }
 
-    const instruction = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
-    });
+        res.status(200).send('User info added successfully');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error depositing');
+    }
+});
 
-    transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
-}
+app.post('/addUserInfo', async (req, res) => {
+    try {
+        const { user_pubkey, amount, fund_status, bot_status } = req.body;
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY",
+        });
+        const userInfoProgramId = new PublicKey(
+            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+        );
+
+        await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
+        res.status(200).send('User info added successfully');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error adding user info');
+    }
+});
+
+app.post('/updateUserInfo', async (req, res) => {
+    try {
+        const { user_pubkey, amount, fund_status, bot_status } = req.body;
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY",
+        });
+        const userInfoProgramId = new PublicKey(
+            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+        );
+
+        await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
+        res.status(200).send('User info updated successfully');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error updating user info');
+    }
+});
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
 
 (async () => {
     try {
@@ -152,18 +123,29 @@ async function addUserInfo(
         });
 
         const userInfoProgramId = new PublicKey(
-            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+            "C2raSeo5Y7cDrZDiWYW7vRiWA8Cn2rX77F6DFmpyrPdp"
         );
 
-        //await addUserInfo(signer, userInfoProgramId, connection);
-       await updateUserInfo(signer, userInfoProgramId, connection);
-        
+
+
+        // const response = await readUserInfo(signer, userInfoProgramId, connection, 'sunit');
+
+        // if (!response) {
+        //     await addUserInfo(signer, userInfoProgramId, connection, 'sunit', 1.5);
+        // } else {
+        //     await updateUserInfo(signer, userInfoProgramId, connection, 'sunit', response.amount + 1);
+        // }
+
+        //await addUserInfo(signer, userInfoProgramId, connection, '82QCjg8kM5D17n28reCWYE85XbWLrtZJ', 1.5);
+        //await updateUserInfo(signer, userInfoProgramId, connection, '82QCjg8kM5D17n28reCWYE85XbWLrtZJ', 1);
+
         console.log("Finished successfully");
     } catch (error) {
         console.error(error);
         process.exit(1);
     }
 })();
+
 
 
 //fund status, amount, user pubkey, bot status

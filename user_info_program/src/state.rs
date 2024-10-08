@@ -5,7 +5,7 @@ use solana_program::program_pack::{IsInitialized, Sealed};
 pub struct VaultAccountState {
     pub is_initialized: bool,
     pub user_pubkey: String,
-    pub amount: u32,
+    pub amount: f32,
     pub fund_status: String,
     pub bot_status: String,
 }
