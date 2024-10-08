@@ -1,0 +1,17 @@
+[package]
+name = "user_info_program"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+no-entrypoint = []
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "user_info_program"
+
+[dependencies]
+borsh = "0.10.3"
+solana-program = "2"
+thiserror = "1.0.64"
+

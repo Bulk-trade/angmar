@@ -1,7 +1,5 @@
 *.env
 
-pools.json
-
 #logs
 logs/
 
