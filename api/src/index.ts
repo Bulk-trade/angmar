@@ -62,6 +62,19 @@ app.post('/deposit', async (req, res) => {
             await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
         }
 
+        //Trigger the deposit keeper bot
+        const result = await fetch('http://localhost:4000/collateral', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ amount: amount }),
+        });
+
+        if (!result.ok) {
+            throw new Error(`HTTP error! depositing to keeper bot status: ${result.status}`);
+        }
+
         res.status(200).send('User info added successfully');
     } catch (error) {
         console.error(error);
