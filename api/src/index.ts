@@ -20,8 +20,7 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-
-
+const BULK_PROGRAM_ID = '8SyXDExbLvDU6Ny7HpRNZB4YKNRg65q9gHbPvhq8JHwP'
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 
@@ -49,7 +48,7 @@ app.post('/deposit', async (req, res) => {
         });
 
         const userInfoProgramId = new PublicKey(
-            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+            BULK_PROGRAM_ID
         );
 
         const response = await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
@@ -63,7 +62,7 @@ app.post('/deposit', async (req, res) => {
         }
 
         //Trigger the deposit keeper bot
-        const result = await fetch('http://localhost:4000/collateral', {
+        const result = await fetch('http://72.46.84.23:4000/collateral', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -90,7 +89,7 @@ app.post('/addUserInfo', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
         const userInfoProgramId = new PublicKey(
-            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+            BULK_PROGRAM_ID
         );
 
         await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
@@ -109,7 +108,7 @@ app.post('/updateUserInfo', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
         const userInfoProgramId = new PublicKey(
-            "98PdopvDo8HrWnahS1EhGK3BFSY3BXKFWDCt7EmzSs7P"
+           BULK_PROGRAM_ID
         );
 
         await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
