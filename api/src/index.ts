@@ -31,12 +31,12 @@ app.post('/deposit', async (req, res) => {
         console.log(user_pubkey, amount, signature)
 
         //Confirm txn before going forward
-        // const blockhash = await connection.getLatestBlockhash();
-        // await connection.confirmTransaction({
-        //     blockhash: blockhash.blockhash,
-        //     lastValidBlockHeight: blockhash.lastValidBlockHeight,
-        //     signature
-        // });
+        const blockhash = await connection.getLatestBlockhash();
+        await connection.confirmTransaction({
+            blockhash: blockhash.blockhash,
+            lastValidBlockHeight: blockhash.lastValidBlockHeight,
+            signature
+        });
 
         const roundedAmount = Number(Number(amount).toFixed(6));
 
@@ -119,45 +119,7 @@ app.post('/updateUserInfo', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
-(async () => {
-    try {
-        // const connection = new Connection(clusterApiUrl("testnet"));
-        const connection = new Connection("http://localhost:8899", "confirmed");
-
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
-
-        const userInfoProgramId = new PublicKey(
-            "C2raSeo5Y7cDrZDiWYW7vRiWA8Cn2rX77F6DFmpyrPdp"
-        );
-
-
-
-        // const response = await readUserInfo(signer, userInfoProgramId, connection, 'sunit');
-
-        // if (!response) {
-        //     await addUserInfo(signer, userInfoProgramId, connection, 'sunit', 1.5);
-        // } else {
-        //     await updateUserInfo(signer, userInfoProgramId, connection, 'sunit', response.amount + 1);
-        // }
-
-        //await addUserInfo(signer, userInfoProgramId, connection, '82QCjg8kM5D17n28reCWYE85XbWLrtZJ', 1.5);
-        //await updateUserInfo(signer, userInfoProgramId, connection, '82QCjg8kM5D17n28reCWYE85XbWLrtZJ', 1);
-
-        console.log("Finished successfully");
-    } catch (error) {
-        console.error(error);
-        process.exit(1);
-    }
-})();
-
-
-
-//fund status, amount, user pubkey, bot status
