@@ -103,7 +103,7 @@ export async function addUserInfo(
 
     transaction.add(instruction);
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    console.log(`https://solscan.io//tx/${tx}`);
 }
 
 export async function updateUserInfo(
@@ -161,7 +161,7 @@ export async function updateUserInfo(
 
     transaction.add(instruction);
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    console.log(`https://solscan.io//tx/${tx}`);
 }
 
 
