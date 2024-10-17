@@ -38,7 +38,7 @@ impl VaultInstruction {
                 bot_status: payload.bot_status,
             },
             1 => Self::UpdateUserInfo {
-                 user_pubkey: payload.user_pubkey,
+                user_pubkey: payload.user_pubkey,
                 amount: payload.amount,
                 fund_status: payload.fund_status,
                 bot_status: payload.bot_status,

@@ -146,6 +146,9 @@ pub fn add_user_info(
     account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     msg!("state account serialized");
 
+    drift_interface::ID;
+
+
     Ok(())
 }
 
