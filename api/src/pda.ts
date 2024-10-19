@@ -4,6 +4,7 @@ import { BotStatus, FundStatus } from "./util";
 
 const vaultInstructionLayout = struct([
     u8("variant"),
+    str("vault_id"),
     str("user_pubkey"),
     f32("amount"),
     str("fund_status"),
@@ -48,34 +49,31 @@ export async function readUserInfo(
     }
 }
 
-export async function addUserInfo(
+export async function initializeVault(
     signer: Keypair,
     programId: PublicKey,
     connection: Connection,
-    user_pubkey: string,
-    amount: number,
+    vault_id: string,
 ) {
     let buffer = Buffer.alloc(1000);
-    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
+    const pubKey = vault_id.slice(0, 32); // Truncate to 32 bytes
     vaultInstructionLayout.encode(
         {
             variant: 0,
-            user_pubkey: pubKey,
-            amount: amount,
-            fund_status: FundStatus.Deposited,
-            bot_status: BotStatus.Init,
+            vault_id: pubKey
         },
         buffer
     );
 
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
-    const [pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
+
+    const [vault_pda] = await PublicKey.findProgramAddressSync(
+        [signer.publicKey.toBuffer(), Buffer.from(vault_id)],
         programId
     );
 
-    console.log("PDA is:", pda.toBase58());
+    console.log("PDA is:", vault_pda.toBase58());
 
     const transaction = new Transaction();
 
@@ -89,7 +87,7 @@ export async function addUserInfo(
                 isWritable: false,
             },
             {
-                pubkey: pda,
+                pubkey: vault_pda,
                 isSigner: false,
                 isWritable: true,
             },
@@ -102,8 +100,84 @@ export async function addUserInfo(
     });
 
     transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
+    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${tx}`);
+    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+}
+
+export async function deposit(
+    signer: Keypair,
+    programId: PublicKey,
+    connection: Connection,
+    vault_id: string,
+    user_pubkey: string,
+    amount: number,
+) {
+    let buffer = Buffer.alloc(1000);
+    const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
+    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
+    vaultInstructionLayout.encode(
+        {
+            variant: 1,
+            vault_id: vault,
+            user_pubkey: pubKey,
+            amount: amount,
+            fund_status: FundStatus.Deposited,
+            bot_status: BotStatus.Init,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+
+    const [user_info_pda] = await PublicKey.findProgramAddressSync(
+        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
+        programId
+    );
+
+
+    console.log("User PDA is:", user_info_pda.toBase58());
+
+    const [vault_pda] = await PublicKey.findProgramAddressSync(
+        [signer.publicKey.toBuffer(), Buffer.from(vault_id)],
+        programId
+    );
+
+    console.log("Vault PDA is:", vault_pda.toBase58());
+
+    const transaction = new Transaction();
+
+    const instruction = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys: [
+            {
+                pubkey: signer.publicKey,
+                isSigner: true,
+                isWritable: false,
+            },
+            {
+                pubkey: user_info_pda,
+                isSigner: false,
+                isWritable: true,
+            },
+            {
+                pubkey: vault_pda,
+                isSigner: false,
+                isWritable: true,
+            },
+            {
+                pubkey: SystemProgram.programId,
+                isSigner: false,
+                isWritable: false,
+            },
+        ],
+    });
+
+    transaction.add(instruction);
+    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+    console.log(`https://solscan.io//tx/${tx}`);
+    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
 }
 
 export async function updateUserInfo(

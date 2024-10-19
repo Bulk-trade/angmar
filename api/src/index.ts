@@ -12,7 +12,7 @@ import {
 } from "@solana-developers/helpers";
 import cors from 'cors';
 import bs58 from "bs58";
-import { addUserInfo, readUserInfo, updateUserInfo } from './pda';
+import { deposit, readUserInfo, updateUserInfo } from './pda';
 
 dotenv.config();
 
@@ -53,7 +53,7 @@ app.post('/deposit', async (req, res) => {
 
         if (!response) {
             console.log('Adding new user Info')
-            await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, roundedAmount);
+            await deposit(signer, userInfoProgramId, connection, user_pubkey, roundedAmount);
             console.log("After Adding user Info");
             await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
         } else {
@@ -93,7 +93,7 @@ app.post('/addUserInfo', async (req, res) => {
             BULK_PROGRAM_ID
         );
 
-        await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
+        await deposit(signer, userInfoProgramId, connection, user_pubkey, amount);
         res.status(200).send('User info added successfully');
     } catch (error) {
         console.error(error);
@@ -108,7 +108,7 @@ app.post('/updateUserInfo', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
         const userInfoProgramId = new PublicKey(
-           BULK_PROGRAM_ID
+            BULK_PROGRAM_ID
         );
 
         await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
@@ -123,3 +123,12 @@ const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+function demo() {
+    const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || ''));
+
+    console.log(signer.publicKey.toString())
+}
+
+demo()
+

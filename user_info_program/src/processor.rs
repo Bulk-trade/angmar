@@ -1,6 +1,6 @@
-use crate::error::InfoError;
 use crate::instruction::VaultInstruction;
-use crate::state::VaultAccountState;
+use crate::state::UserInfoAccountState;
+use crate::{error::InfoError, state::VaultAccountState};
 use borsh::BorshSerialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -23,20 +23,26 @@ pub fn process_instruction(
 ) -> ProgramResult {
     let instruction = VaultInstruction::unpack(instruction_data)?;
     match instruction {
-        VaultInstruction::AddUserInfo {
+        VaultInstruction::InitializeVault { vault_id } => {
+            initialize_vault(program_id, accounts, vault_id)
+        }
+        VaultInstruction::Deposit {
+            vault_id,
             user_pubkey,
             amount,
             fund_status,
             bot_status,
-        } => add_user_info(
+        } => deposit(
             program_id,
             accounts,
+            vault_id,
             user_pubkey,
             amount,
             fund_status,
             bot_status,
         ),
         VaultInstruction::UpdateUserInfo {
+            vault_id,
             user_pubkey,
             amount,
             fund_status,
@@ -52,24 +58,18 @@ pub fn process_instruction(
     }
 }
 
-pub fn add_user_info(
+pub fn initialize_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
-    user_pubkey: String,
-    amount: f32,
-    fund_status: String,
-    bot_status: String,
+    vault_id: String,
 ) -> ProgramResult {
-    msg!("Adding User info...");
-    msg!("user_pubkey: {}", user_pubkey);
-    msg!("amount: {}", amount);
-    msg!("fund_status: {}", fund_status);
-    msg!("bot_status: {}", bot_status);
+    msg!("Initializing Vault...");
+    msg!("Vault Id: {}", vault_id);
 
     let account_info_iter = &mut accounts.iter();
 
     let initializer = next_account_info(account_info_iter)?;
-    let pda_account = next_account_info(account_info_iter)?;
+    let vault_pda_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     if !initializer.is_signer {
@@ -77,22 +77,17 @@ pub fn add_user_info(
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let (pda, bump_seed) = Pubkey::find_program_address(
-        &[initializer.key.as_ref(), user_pubkey.as_bytes().as_ref()],
+    let (vault_pda, vault_bump_seed) = Pubkey::find_program_address(
+        &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
         program_id,
     );
-    if pda != *pda_account.key {
-        msg!("Invalid seeds for PDA");
+
+    if vault_pda != *vault_pda_account.key {
+        msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
 
-    // if rating > 5 || rating < 1 {
-    //     msg!("Rating cannot be higher than 5");
-    //     return Err(ReviewError::InvalidRating.into());
-    // }
-
-    let total_len: usize =
-        1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
+    let total_len: usize = 1 + 4 + (4 + vault_id.len());
     if total_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
         return Err(InfoError::InvalidDataLength.into());
@@ -106,28 +101,28 @@ pub fn add_user_info(
     invoke_signed(
         &system_instruction::create_account(
             initializer.key,
-            pda_account.key,
+            vault_pda_account.key,
             rent_lamports,
             account_len.try_into().unwrap(),
             program_id,
         ),
         &[
             initializer.clone(),
-            pda_account.clone(),
+            vault_pda_account.clone(),
             system_program.clone(),
         ],
         &[&[
             initializer.key.as_ref(),
-            user_pubkey.as_bytes().as_ref(),
-            &[bump_seed],
+            vault_id.as_bytes().as_ref(),
+            &[vault_bump_seed],
         ]],
     )?;
 
-    msg!("PDA created: {}", pda);
+    msg!("PDA created: {}", vault_pda);
 
     msg!("unpacking state account");
     let mut account_data =
-        try_from_slice_unchecked::<VaultAccountState>(&pda_account.data.borrow()).unwrap();
+        try_from_slice_unchecked::<VaultAccountState>(&vault_pda_account.data.borrow()).unwrap();
     msg!("borrowed account data");
 
     msg!("checking if user account is already initialized");
@@ -136,18 +131,169 @@ pub fn add_user_info(
         return Err(ProgramError::AccountAlreadyInitialized);
     }
 
-    account_data.user_pubkey = user_pubkey;
-    account_data.amount = amount;
-    account_data.fund_status = fund_status;
-    account_data.bot_status = bot_status;
+    account_data.vault_id = vault_id.clone();
     account_data.is_initialized = true;
 
     msg!("serializing account");
-    account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
+    account_data.serialize(&mut &mut vault_pda_account.data.borrow_mut()[..])?;
     msg!("state account serialized");
 
-    drift_interface::ID;
+    Ok(())
+}
 
+pub fn deposit(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    vault_id: String,
+    user_pubkey: String,
+    amount: f32,
+    fund_status: String,
+    bot_status: String,
+) -> ProgramResult {
+    msg!("Starting deposit...");
+    msg!("vault_id: {}", vault_id);
+    msg!("user_pubkey: {}", user_pubkey);
+    msg!("amount: {}", amount);
+    msg!("fund_status: {}", fund_status);
+    msg!("bot_status: {}", bot_status);
+
+    let account_info_iter = &mut accounts.iter();
+
+    let initializer = next_account_info(account_info_iter)?;
+    let user_info_pda_account = next_account_info(account_info_iter)?;
+    let vault_pda_account = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
+
+    // if user_info_pda_account.owner != program_id {
+    //     return Err(ProgramError::IllegalOwner);
+    // }
+
+    if !initializer.is_signer {
+        msg!("Missing required signature");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    msg!("unpacking state account");
+    let mut account_data =
+        try_from_slice_unchecked::<UserInfoAccountState>(&user_info_pda_account.data.borrow())
+            .unwrap();
+    msg!("user pubkey: {}", account_data.user_pubkey);
+
+    let (user_pda, user_bump_seed) = Pubkey::find_program_address(
+        &[
+            initializer.key.as_ref(),
+            account_data.user_pubkey.as_bytes().as_ref(),
+        ],
+        program_id,
+    );
+
+    if user_pda != *user_info_pda_account.key {
+        msg!("Invalid seeds for User PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let total_len: usize =
+        1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
+    if total_len > 1000 {
+        msg!("Data length is larger than 1000 bytes");
+        return Err(InfoError::InvalidDataLength.into());
+    }
+
+    let account_len: usize = 1000;
+
+    let rent = Rent::get()?;
+    let rent_lamports = rent.minimum_balance(account_len);
+
+    msg!("checking if user account is initialized");
+    if account_data.is_initialized() {
+        msg!("Account is already initialized");
+        msg!("Updating the acccount");
+
+        msg!("UserInfo before update:");
+        msg!("vault_id: {}", account_data.vault_id);
+        msg!("user_pubkey: {}", account_data.user_pubkey);
+        msg!("amount: {}", account_data.amount);
+        msg!("fund_status: {}", account_data.fund_status);
+        msg!("bot_status: {}", account_data.bot_status);
+
+        account_data.vault_id = vault_id;
+        account_data.amount += amount;
+        account_data.fund_status = fund_status;
+        account_data.bot_status = bot_status;
+
+        msg!("UserInfo after update:");
+        msg!("vault_id: {}", account_data.vault_id);
+        msg!("user_pubkey: {}", account_data.user_pubkey);
+        msg!("amount: {}", account_data.amount);
+        msg!("fund_status: {}", account_data.fund_status);
+        msg!("bot_status: {}", account_data.bot_status);
+    } else {
+        msg!("Account is not initialized");
+        msg!("Creating the acccount");
+        invoke_signed(
+            &system_instruction::create_account(
+                initializer.key,
+                user_info_pda_account.key,
+                rent_lamports,
+                account_len.try_into().unwrap(),
+                program_id,
+            ),
+            &[
+                initializer.clone(),
+                user_info_pda_account.clone(),
+                system_program.clone(),
+            ],
+            &[&[
+                initializer.key.as_ref(),
+                user_pubkey.as_bytes().as_ref(),
+                &[user_bump_seed],
+            ]],
+        )?;
+
+        msg!("PDA created: {}", user_pda);
+        
+        account_data.vault_id = vault_id;
+        account_data.user_pubkey = user_pubkey.clone();
+        account_data.amount = amount;
+        account_data.fund_status = fund_status;
+        account_data.bot_status = bot_status;
+        account_data.is_initialized = true;
+    }
+
+    msg!("serializing account");
+    account_data.serialize(&mut &mut user_info_pda_account.data.borrow_mut()[..])?;
+    msg!("state account serialized");
+
+    //drift_interface::ID;
+
+    let (vault_pda, vault_bump_seed) = Pubkey::find_program_address(
+        &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
+        program_id,
+    );
+
+    if vault_pda != *vault_pda_account.key {
+        msg!("Invalid seeds for Vault PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    msg!("Depositing to Pda...");
+    invoke_signed(
+        &system_instruction::transfer(
+            initializer.key,
+            vault_pda_account.key,
+            (amount * 1_000_000_000.0) as u64,
+        ),
+        &[
+            initializer.clone(),
+            vault_pda_account.clone(),
+            system_program.clone(),
+        ],
+        &[&[
+            initializer.key.as_ref(),
+            user_pubkey.as_bytes().as_ref(),
+            &[vault_bump_seed],
+        ]],
+    )?;
 
     Ok(())
 }
@@ -182,7 +328,7 @@ pub fn update_user_info(
 
     msg!("unpacking state account");
     let mut account_data =
-        try_from_slice_unchecked::<VaultAccountState>(&pda_account.data.borrow()).unwrap();
+        try_from_slice_unchecked::<UserInfoAccountState>(&pda_account.data.borrow()).unwrap();
     msg!("user pubkey: {}", account_data.user_pubkey);
 
     let (pda, _bump_seed) = Pubkey::find_program_address(
