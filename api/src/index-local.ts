@@ -20,66 +20,8 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-const BULK_PROGRAM_ID = 'ASyAtnUUtXao8sfbGHQu63cqMgbWWFnzdQ15fjhsxqAU'
+const BULK_PROGRAM_ID = 'GpJ7xu9hQd5Hb9vJShiSwR47qYAhBarF1Sa5rAaGhUZk'
 const connection = new Connection("http://localhost:8899", "confirmed");
-
-
-// app.post('/deposit', async (req, res) => {
-//     try {
-//         const { user_pubkey, amount, signature } = req.body;
-
-//         console.log(user_pubkey, amount, signature)
-
-//         //Confirm txn before going forward
-//         const blockhash = await connection.getLatestBlockhash();
-//         await connection.confirmTransaction({
-//             blockhash: blockhash.blockhash,
-//             lastValidBlockHeight: blockhash.lastValidBlockHeight,
-//             signature
-//         });
-
-//         const roundedAmount = Number(Number(amount).toFixed(6));
-
-//         console.log(user_pubkey, roundedAmount, signature)
-
-//         const signer = await initializeKeypair(connection, {
-//             airdropAmount: LAMPORTS_PER_SOL,
-//             envVariableName: "PRIVATE_KEY",
-//         });
-
-//         const userInfoProgramId = new PublicKey(
-//             BULK_PROGRAM_ID
-//         );
-
-//         const response = await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
-
-//         if (!response) {
-//             await addUserInfo(signer, userInfoProgramId, connection, user_pubkey, roundedAmount);
-//         } else {
-//             await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, response.amount + roundedAmount);
-//             console.log("After Update");
-//             await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
-//         }
-
-//         //Trigger the deposit keeper bot
-//         const result = await fetch('http://72.46.84.23:4000/collateral', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//             },
-//             body: JSON.stringify({ amount: amount }),
-//         });
-
-//         if (!result.ok) {
-//             throw new Error(`HTTP error! depositing to keeper bot status: ${result.status}`);
-//         }
-
-//         res.status(200).send('User info added successfully');
-//     } catch (error) {
-//         console.error(error);
-//         res.status(500).send('Error depositing');
-//     }
-// });
 
 app.post('/initVault', async (req, res) => {
     try {
@@ -149,3 +91,14 @@ const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+async function test() {
+    const signer = await initializeKeypair(connection, {
+        airdropAmount: LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY",
+    });
+    readUserInfo(signer, new PublicKey(BULK_PROGRAM_ID), connection, 'sunit');
+}
+
+test()
+

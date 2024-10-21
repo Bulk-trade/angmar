@@ -10,5 +10,7 @@
     "inlineSources": true,
     "sourceRoot": "/"
   },
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

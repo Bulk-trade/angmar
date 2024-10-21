@@ -113,6 +113,15 @@ export async function deposit(
     user_pubkey: string,
     amount: number,
 ) {
+
+    // Log the input parameters
+    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount });
+
+    // Validate input parameters
+    if (!vault_id || !user_pubkey) {
+        throw new Error('vault_id and user_pubkey must be defined');
+    }
+
     let buffer = Buffer.alloc(1000);
     const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
     const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
