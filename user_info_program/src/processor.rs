@@ -2,6 +2,7 @@ use crate::instruction::VaultInstruction;
 use crate::state::UserInfoAccountState;
 use crate::{error::InfoError, state::VaultAccountState};
 use borsh::BorshSerialize;
+use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     borsh::try_from_slice_unchecked,
@@ -306,22 +307,17 @@ pub fn deposit(
     }
 
     msg!("Depositing to Vault Pda...");
-    invoke_signed(
+    invoke(
         &system_instruction::transfer(
             initializer.key,
             vault_pda_account.key,
-            (amount * 1_00_000_000.0) as u64,
+            (amount * 1_000_000_000.0) as u64,
         ),
         &[
             initializer.clone(),
             vault_pda_account.clone(),
             system_program.clone(),
-        ],
-        &[&[
-            initializer.key.as_ref(),
-            user_pubkey.as_bytes().as_ref(),
-            &[vault_bump_seed],
-        ]],
+        ]
     )?;
 
     Ok(())

@@ -20,7 +20,7 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-const BULK_PROGRAM_ID = '91gNQ8M7E9yzWQbomxTco9RjMgC1V7yQrFYf9LVMDugW'
+const BULK_PROGRAM_ID = 'HHswWcPUCB6nCV927y5TbZyLwjTt2Enguc6f61U35gog'
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 app.post('/initVault', async (req, res) => {
