@@ -1,5 +1,5 @@
 [package]
-name = "user_info_program"
+name = "vault_program"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,7 @@ no-entrypoint = []
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "user_info_program"
+name = "vault_program"
 
 [dependencies]
 borsh = "0.10.3"

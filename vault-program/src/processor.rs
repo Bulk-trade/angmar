@@ -294,7 +294,7 @@ pub fn deposit(
 
     //drift_interface::ID;
 
-    let (vault_pda, vault_bump_seed) = Pubkey::find_program_address(
+    let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
         &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
         program_id,
     );
