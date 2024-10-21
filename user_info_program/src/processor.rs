@@ -298,17 +298,19 @@ pub fn deposit(
         program_id,
     );
 
+    msg!("Vault PDA: {}", vault_pda);
+
     if vault_pda != *vault_pda_account.key {
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("Depositing to Pda...");
+    msg!("Depositing to Vault Pda...");
     invoke_signed(
         &system_instruction::transfer(
             initializer.key,
             vault_pda_account.key,
-            (amount * 1_000_000_000.0) as u64,
+            (amount * 1_00_000_000.0) as u64,
         ),
         &[
             initializer.clone(),

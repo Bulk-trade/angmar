@@ -20,7 +20,7 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-const BULK_PROGRAM_ID = 'GpJ7xu9hQd5Hb9vJShiSwR47qYAhBarF1Sa5rAaGhUZk'
+const BULK_PROGRAM_ID = '91gNQ8M7E9yzWQbomxTco9RjMgC1V7yQrFYf9LVMDugW'
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 app.post('/initVault', async (req, res) => {
@@ -97,7 +97,7 @@ async function test() {
         airdropAmount: LAMPORTS_PER_SOL,
         envVariableName: "PRIVATE_KEY",
     });
-    readUserInfo(signer, new PublicKey(BULK_PROGRAM_ID), connection, 'sunit');
+   await readUserInfo(signer, new PublicKey(BULK_PROGRAM_ID), connection, 'sunit');
 }
 
 test()

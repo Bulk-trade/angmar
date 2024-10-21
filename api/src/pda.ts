@@ -17,10 +17,10 @@ export async function readUserInfo(
     connection: Connection,
     user_pubkey: string,
 ) {
-    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
+    //const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
 
     const [pda] = PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
+        [signer.publicKey.toBuffer(), Buffer.from(user_pubkey)],
         programId
     );
 
@@ -34,6 +34,7 @@ export async function readUserInfo(
     // Convert the user_pubkey from bytes to a PublicKey string
     console.log({
         variant: data.variant,
+        vault: data.vault_id,
         user_pubkey: data.user_pubkey,
         amount: data.amount,
         fund_status: data.fund_status,
