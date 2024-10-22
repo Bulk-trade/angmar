@@ -22,23 +22,24 @@ app.use(cors());
 
 const BULK_PROGRAM_ID = process.env.PROGRAM_ID || '';
 const connection = new Connection("http://localhost:8899", "confirmed");
+const vaultProgramId = new PublicKey(
+    BULK_PROGRAM_ID
+);
 
 app.post('/initVault', async (req, res) => {
     try {
         const { vault_id } = req.body;
+
         const signer = await initializeKeypair(connection, {
             airdropAmount: LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY",
         });
-        const userInfoProgramId = new PublicKey(
-            BULK_PROGRAM_ID
-        );
 
-        await initializeVault(signer, userInfoProgramId, connection, vault_id);
+        await initializeVault(signer, vaultProgramId, connection, vault_id);
         res.status(200).send('Initialized Vault successfully');
     } catch (error) {
         console.error(error);
-        res.status(500).send('Error adding user info');
+        res.status(500).send('Error initializing Vault');
     }
 });
 
@@ -50,14 +51,10 @@ app.post('/deposit', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
 
-        const userInfoProgramId = new PublicKey(
-            BULK_PROGRAM_ID
-        );
-
         console.log("before deposit")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await deposit(signer, userInfoProgramId, connection, vault_id, user_pubkey, amount);
+        await deposit(signer, vaultProgramId, connection, vault_id, user_pubkey, amount);
 
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))
@@ -76,14 +73,10 @@ app.post('/withdraw', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
 
-        const userInfoProgramId = new PublicKey(
-            BULK_PROGRAM_ID
-        );
-
         console.log("before withdraw")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await withdraw(signer, userInfoProgramId, connection, vault_id, user_pubkey, amount);
+        await withdraw(signer, vaultProgramId, connection, vault_id, user_pubkey, amount);
 
         console.log("after withdraw")
         console.log(await connection.getBalance(signer.publicKey))
@@ -101,11 +94,8 @@ app.post('/updateUserInfo', async (req, res) => {
             airdropAmount: LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY",
         });
-        const userInfoProgramId = new PublicKey(
-            BULK_PROGRAM_ID
-        );
 
-        await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
+        await updateUserInfo(signer, vaultProgramId, connection, user_pubkey, amount);
 
         console.log("after withdraw")
         console.log(await connection.getBalance(signer.publicKey))
@@ -119,14 +109,13 @@ app.post('/updateUserInfo', async (req, res) => {
 const PORT = process.env.PORT || 4001;
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`BULK Program Id: ${BULK_PROGRAM_ID}`);
-    const signer = await initializeKeypair(connection, {
-        airdropAmount: LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY",
-    });
-    const userInfoProgramId = new PublicKey(
-        BULK_PROGRAM_ID
-    );
-    readPdaInfo(signer, userInfoProgramId, connection, 'sunit01')
+    console.log(`BULK Vault Program Id: ${vaultProgramId.toString()}`);
+
+    // const signer = await initializeKeypair(connection, {
+    //     airdropAmount: LAMPORTS_PER_SOL,
+    //     envVariableName: "PRIVATE_KEY",
+    // });
+
+    //await readPdaInfo(signer, vaultProgramId, connection, 'sunit01')
 });
 

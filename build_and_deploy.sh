@@ -18,11 +18,10 @@ echo "Program ID: $program_id"
 # Navigate to the api directory
 cd api
 
+# Print instructions to run the test script
+echo "Starting Server. Run './test.sh' in a separate terminal to execute the API requests."
+
 # Export the Program ID as an environment variable and run npm run local
 PROGRAM_ID=$program_id npm run local
 
-# Wait for the server to start
-sleep 10
 
-# Print instructions to run the test script
-echo "Server started. Run './test.sh' in a separate terminal to execute the API requests."

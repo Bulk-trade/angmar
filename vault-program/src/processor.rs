@@ -1,6 +1,6 @@
 use crate::instruction::VaultInstruction;
 use crate::state::UserInfoAccountState;
-use crate::{error::VaultError, state::VaultAccountState};
+use crate::error::VaultError;
 use borsh::BorshSerialize;
 use solana_program::program::invoke;
 use solana_program::{
@@ -89,23 +89,15 @@ pub fn initialize_vault(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let total_len: usize = 1 + 4 + (4 + vault_id.len());
-    if total_len > 1000 {
-        msg!("Data length is larger than 1000 bytes");
-        return Err(VaultError::InvalidDataLength.into());
-    }
-
-    let account_len: usize = 1000;
-
     let rent = Rent::get()?;
-    let rent_lamports = rent.minimum_balance(account_len);
+    let rent_lamports = rent.minimum_balance(0);
 
     invoke_signed(
         &system_instruction::create_account(
             initializer.key,
             vault_pda_account.key,
             rent_lamports,
-            account_len.try_into().unwrap(),
+            0,
             program_id,
         ),
         &[
@@ -121,24 +113,6 @@ pub fn initialize_vault(
     )?;
 
     msg!("PDA created: {}", vault_pda);
-
-    // msg!("unpacking state account");
-    // let mut account_data =
-    //     try_from_slice_unchecked::<VaultAccountState>(&vault_pda_account.data.borrow()).unwrap();
-    // msg!("borrowed account data");
-
-    // msg!("checking if user account is already initialized");
-    // if account_data.is_initialized() {
-    //     msg!("Account already initialized");
-    //     return Err(ProgramError::AccountAlreadyInitialized);
-    // }
-
-    // account_data.vault_id = vault_id.clone();
-    // account_data.is_initialized = true;
-
-    // msg!("serializing account");
-    // account_data.serialize(&mut &mut vault_pda_account.data.borrow_mut()[..])?;
-    // msg!("state account serialized");
 
     Ok(())
 }
@@ -341,7 +315,6 @@ pub fn withdraw(
     let initializer = next_account_info(account_info_iter)?;
     let user_info_pda_account = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
-    let system_program = next_account_info(account_info_iter)?;
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -423,7 +396,7 @@ pub fn withdraw(
     account_data.serialize(&mut &mut user_info_pda_account.data.borrow_mut()[..])?;
     msg!("state account serialized");
 
-    let (vault_pda, vault_bump_seed) = Pubkey::find_program_address(
+    let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
         &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
         program_id,
     );
@@ -436,23 +409,11 @@ pub fn withdraw(
     }
 
     msg!("Withdrawing from Vault Pda to {}", initializer.key);
-    invoke_signed(
-        &system_instruction::transfer(
-            vault_pda_account.key,
-            initializer.key,
-            (amount * 1_000_000_000.0) as u64,
-        ),
-        &[
-            vault_pda_account.clone(),
-            initializer.clone(),
-            system_program.clone(),
-        ],
-        &[&[
-            initializer.key.as_ref(),
-            vault_id.as_bytes().as_ref(),
-            &[vault_bump_seed],
-        ]],
-    )?;
+
+    let amount_in_lamports = (amount * 1_000_000_000.0) as u64;
+
+    **vault_pda_account.lamports.borrow_mut() -= amount_in_lamports;
+    **initializer.lamports.borrow_mut() += amount_in_lamports;
 
     Ok(())
 }

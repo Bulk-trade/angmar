@@ -31,6 +31,8 @@ export async function readPdaInfo(
         console.log("Account not found");
         return null;
     }
+
+    console.log(accountInfo.data)
     //Deserialize the data
     const data = vaultInstructionLayout.decode(accountInfo.data);
     // Convert the user_pubkey from bytes to a PublicKey string
