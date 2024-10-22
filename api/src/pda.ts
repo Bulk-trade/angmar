@@ -11,7 +11,7 @@ const vaultInstructionLayout = struct([
     str("bot_status"),
 ]);
 
-export async function readUserInfo(
+export async function readPdaInfo(
     signer: Keypair,
     programId: PublicKey,
     connection: Connection,
@@ -23,6 +23,8 @@ export async function readUserInfo(
         [signer.publicKey.toBuffer(), Buffer.from(user_pubkey)],
         programId
     );
+
+    console.log("PDA is:", pda.toBase58());
 
     const accountInfo = await connection.getAccountInfo(pda);
     if (accountInfo === null) {

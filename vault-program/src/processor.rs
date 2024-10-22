@@ -122,23 +122,23 @@ pub fn initialize_vault(
 
     msg!("PDA created: {}", vault_pda);
 
-    msg!("unpacking state account");
-    let mut account_data =
-        try_from_slice_unchecked::<VaultAccountState>(&vault_pda_account.data.borrow()).unwrap();
-    msg!("borrowed account data");
+    // msg!("unpacking state account");
+    // let mut account_data =
+    //     try_from_slice_unchecked::<VaultAccountState>(&vault_pda_account.data.borrow()).unwrap();
+    // msg!("borrowed account data");
 
-    msg!("checking if user account is already initialized");
-    if account_data.is_initialized() {
-        msg!("Account already initialized");
-        return Err(ProgramError::AccountAlreadyInitialized);
-    }
+    // msg!("checking if user account is already initialized");
+    // if account_data.is_initialized() {
+    //     msg!("Account already initialized");
+    //     return Err(ProgramError::AccountAlreadyInitialized);
+    // }
 
-    account_data.vault_id = vault_id.clone();
-    account_data.is_initialized = true;
+    // account_data.vault_id = vault_id.clone();
+    // account_data.is_initialized = true;
 
-    msg!("serializing account");
-    account_data.serialize(&mut &mut vault_pda_account.data.borrow_mut()[..])?;
-    msg!("state account serialized");
+    // msg!("serializing account");
+    // account_data.serialize(&mut &mut vault_pda_account.data.borrow_mut()[..])?;
+    // msg!("state account serialized");
 
     Ok(())
 }
@@ -449,7 +449,7 @@ pub fn withdraw(
         ],
         &[&[
             initializer.key.as_ref(),
-            user_pubkey.as_bytes().as_ref(),
+            vault_id.as_bytes().as_ref(),
             &[vault_bump_seed],
         ]],
     )?;

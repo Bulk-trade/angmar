@@ -11,7 +11,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeVault, readUserInfo, updateUserInfo, withdraw } from './pda';
+import { deposit as deposit, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-const BULK_PROGRAM_ID = 'EMteE3hjxeoGj2AG6aKkZwhQW5vp23D5LicuhhKxiJqb'
+const BULK_PROGRAM_ID = process.env.PROGRAM_ID || '';
 const connection = new Connection("http://localhost:8899", "confirmed");
 
 app.post('/initVault', async (req, res) => {
@@ -58,7 +58,7 @@ app.post('/deposit', async (req, res) => {
         console.log(await connection.getBalance(signer.publicKey))
 
         await deposit(signer, userInfoProgramId, connection, vault_id, user_pubkey, amount);
-        
+
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))
         res.status(200).send('Deposited successfully');
@@ -106,7 +106,7 @@ app.post('/updateUserInfo', async (req, res) => {
         );
 
         await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, amount);
-        
+
         console.log("after withdraw")
         console.log(await connection.getBalance(signer.publicKey))
         res.status(200).send('Deposited successfully');
@@ -117,6 +117,16 @@ app.post('/updateUserInfo', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 4001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`BULK Program Id: ${BULK_PROGRAM_ID}`);
+    const signer = await initializeKeypair(connection, {
+        airdropAmount: LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY",
+    });
+    const userInfoProgramId = new PublicKey(
+        BULK_PROGRAM_ID
+    );
+    readPdaInfo(signer, userInfoProgramId, connection, 'sunit01')
 });
+

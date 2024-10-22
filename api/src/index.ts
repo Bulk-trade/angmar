@@ -12,7 +12,7 @@ import {
 } from "@solana-developers/helpers";
 import cors from 'cors';
 import bs58 from "bs58";
-import { deposit, readUserInfo, updateUserInfo } from './pda';
+import { deposit, readPdaInfo, updateUserInfo } from './pda';
 
 dotenv.config();
 
@@ -49,18 +49,18 @@ app.post('/deposit', async (req, res) => {
         );
 
         console.log('Reading User Info')
-        const response = await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
+        const response = await readPdaInfo(signer, userInfoProgramId, connection, user_pubkey);
 
         if (!response) {
             console.log('Adding new user Info')
             await deposit(signer, userInfoProgramId, connection, user_pubkey, roundedAmount);
             console.log("After Adding user Info");
-            await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
+            await readPdaInfo(signer, userInfoProgramId, connection, user_pubkey);
         } else {
             console.log('Updating user Info')
             await updateUserInfo(signer, userInfoProgramId, connection, user_pubkey, response.amount + roundedAmount);
             console.log("After Updating user Info");
-            await readUserInfo(signer, userInfoProgramId, connection, user_pubkey);
+            await readPdaInfo(signer, userInfoProgramId, connection, user_pubkey);
         }
 
         //Trigger the deposit keeper bot
