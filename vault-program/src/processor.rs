@@ -5,7 +5,7 @@ use borsh::BorshSerialize;
 use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh::try_from_slice_unchecked,
+    borsh1::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke_signed,

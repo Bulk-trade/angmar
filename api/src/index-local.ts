@@ -12,6 +12,7 @@ import {
 } from "@solana-developers/helpers";
 import cors from 'cors';
 import { deposit as deposit, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
+import bs58 from "bs58";
 
 dotenv.config();
 
@@ -48,7 +49,7 @@ app.post('/deposit', async (req, res) => {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
             airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
+            envVariableName: "PRIVATE_KEY_USER",
         });
 
         console.log("before deposit")
@@ -70,7 +71,7 @@ app.post('/withdraw', async (req, res) => {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
             airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
+            envVariableName: "PRIVATE_KEY_USER",
         });
 
         console.log("before withdraw")
