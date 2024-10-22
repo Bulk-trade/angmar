@@ -7,4 +7,4 @@ rm -rf target
 cargo build-sbf
 
 # Deploy the Solana program
-solana program deploy ./target/deploy/user_info_program.so
+solana program deploy ./target/deploy/vault_program.so

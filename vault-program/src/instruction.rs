@@ -12,7 +12,7 @@ pub enum VaultInstruction {
         fund_status: String,
         bot_status: String,
     },
-    UpdateUserInfo {
+    Withdraw {
         vault_id: String,
         user_pubkey: String,
         amount: f32,
@@ -47,7 +47,7 @@ impl VaultInstruction {
                 fund_status: payload.fund_status,
                 bot_status: payload.bot_status,
             },
-            2 => Self::UpdateUserInfo {
+            2 => Self::Withdraw {
                 vault_id: payload.vault_id,
                 user_pubkey: payload.user_pubkey,
                 amount: payload.amount,
