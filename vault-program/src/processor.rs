@@ -1,6 +1,6 @@
 use crate::instruction::VaultInstruction;
-use crate::state::UserInfoAccountState;
 use crate::error::VaultError;
+use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
 use solana_program::program::invoke;
 use solana_program::{
@@ -80,7 +80,7 @@ pub fn initialize_vault(
     }
 
     let (vault_pda, vault_bump_seed) = Pubkey::find_program_address(
-        &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
+        &[vault_id.as_bytes().as_ref()],
         program_id,
     );
 
@@ -106,7 +106,6 @@ pub fn initialize_vault(
             system_program.clone(),
         ],
         &[&[
-            initializer.key.as_ref(),
             vault_id.as_bytes().as_ref(),
             &[vault_bump_seed],
         ]],
@@ -266,7 +265,7 @@ pub fn deposit(
     //drift_interface::ID;
 
     let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
-        &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
+        &[vault_id.as_bytes().as_ref()],
         program_id,
     );
 
@@ -397,7 +396,7 @@ pub fn withdraw(
     msg!("state account serialized");
 
     let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
-        &[initializer.key.as_ref(), vault_id.as_bytes().as_ref()],
+        &[vault_id.as_bytes().as_ref()],
         program_id,
     );
 

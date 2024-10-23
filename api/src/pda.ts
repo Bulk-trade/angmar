@@ -20,7 +20,7 @@ export async function readPdaInfo(
     //const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
 
     const [pda] = PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(user_pubkey)],
+        [Buffer.from(user_pubkey)],
         programId
     );
 
@@ -74,11 +74,11 @@ export async function initializeVault(
 
 
     const [vault_pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(vault_id)],
+        [Buffer.from(vault_id)],
         programId
     );
 
-    console.log("PDA is:", vault_pda.toBase58());
+    console.log("Vault PDA is:", vault_pda.toBase58());
 
     const transaction = new Transaction();
 
@@ -153,7 +153,7 @@ export async function deposit(
     console.log("User PDA is:", user_info_pda.toBase58());
 
     const [vault_pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(vault_id)],
+        [Buffer.from(vault_id)],
         programId
     );
 
@@ -237,7 +237,7 @@ export async function withdraw(
     console.log("User PDA is:", user_info_pda.toBase58());
 
     const [vault_pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(vault_id)],
+        [Buffer.from(vault_id)],
         programId
     );
 

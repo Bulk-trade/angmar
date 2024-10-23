@@ -48,7 +48,7 @@ app.post('/deposit', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
+            airdropAmount: 2 * LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY_USER",
         });
 
@@ -70,7 +70,7 @@ app.post('/withdraw', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
+            airdropAmount: 2 * LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY_USER",
         });
 

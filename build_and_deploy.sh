@@ -22,6 +22,7 @@ cd api
 echo "Starting Server. Run './test.sh' in a separate terminal to execute the API requests."
 
 # Export the Program ID as an environment variable and run npm run local
+echo "PROGRAM_ID=$program_id npm run local"
 PROGRAM_ID=$program_id npm run local
 
 
