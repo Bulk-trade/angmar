@@ -25,15 +25,26 @@ pub fn initialize_vault(
 
     let account_info_iter = &mut accounts.iter();
 
+    // let initializer = next_account_info(account_info_iter)?;
+    // let vault_pda_account = next_account_info(account_info_iter)?;
+    // let user = next_account_info(account_info_iter)?;
+    // let user_stats = next_account_info(account_info_iter)?;
+    // let state = next_account_info(account_info_iter)?;
+    // let authority = next_account_info(account_info_iter)?;
+    // let payer = next_account_info(account_info_iter)?;
+    // let user_rent = next_account_info(account_info_iter)?;
+    //let system_program = next_account_info(account_info_iter)?;
+
     let initializer = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
-    let user = next_account_info(account_info_iter)?;
-    let user_stats = next_account_info(account_info_iter)?;
-    let state = next_account_info(account_info_iter)?;
-    let authority = next_account_info(account_info_iter)?;
-    let payer = next_account_info(account_info_iter)?;
-    let user_rent = next_account_info(account_info_iter)?;
+    let treasury_pda_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
+
+    // Print each variable
+    msg!("initializer: {}", initializer.key);
+    msg!("vault_pda_account: {}", vault_pda_account.key);
+    msg!("treasury_pda_account: {}", treasury_pda_account.key);
+    msg!("system_program: {}", system_program.key);
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -68,41 +79,71 @@ pub fn initialize_vault(
         &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
     )?;
 
-    msg!("PDA created: {}", vault_pda);
+    msg!("Vault PDA created: {}", vault_pda);
+
+    // Create Treasury PDA
+    let (treasury_pda, treasury_bump_seed) =
+        Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
+
+    if treasury_pda != *treasury_pda_account.key {
+        msg!("Invalid seeds for Treasury PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    invoke_signed(
+        &system_instruction::create_account(
+            initializer.key,
+            treasury_pda_account.key,
+            rent_lamports,
+            0,
+            program_id,
+        ),
+        &[
+            initializer.clone(),
+            treasury_pda_account.clone(),
+            system_program.clone(),
+        ],
+        &[&[b"treasury", vault_id.as_bytes().as_ref(), &[treasury_bump_seed]]],
+    )?;
+
+    msg!("Treasury PDA created: {}", treasury_pda);
+
+
+
     //Initialize user stats
-    initialize_user_stats_invoke_signed(
-        InitializeUserStatsAccounts {
-            user_stats,
-            state,
-            authority,
-            payer,
-            rent: user_rent,
-            system_program,
-        },
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
+    // initialize_user_stats_invoke_signed(
+    //     InitializeUserStatsAccounts {
+    //         user_stats,
+    //         state,
+    //         authority,
+    //         payer,
+    //         rent: user_rent,
+    //         system_program,
+    //     },
+    //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
+    // )?;
 
-    let mut name = [0u8; 32];
-    let bytes = vault_id.as_bytes();
-    name[..bytes.len()].copy_from_slice(bytes);
+    // let mut name = [0u8; 32];
+    // let bytes = vault_id.as_bytes();
+    // name[..bytes.len()].copy_from_slice(bytes);
 
-    //Initialize user
-    initialize_user_invoke_signed(
-        InitializeUserAccounts {
-            user,
-            user_stats,
-            state,
-            authority,
-            payer,
-            rent: user_rent,
-            system_program,
-        },
-        InitializeUserIxArgs {
-            sub_account_id: 0,
-            name: name,
-        },
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
+    // //Initialize user
+    // initialize_user_invoke_signed(
+    //     InitializeUserAccounts {
+    //         user,
+    //         user_stats,
+    //         state,
+    //         authority,
+    //         payer,
+    //         rent: user_rent,
+    //         system_program,
+    //     },
+    //     InitializeUserIxArgs {
+    //         sub_account_id: 0,
+    //         name: name,
+    //     },
+    //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
+    // )?;
 
     Ok(())
 }

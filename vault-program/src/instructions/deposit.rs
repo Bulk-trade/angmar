@@ -37,6 +37,7 @@ pub fn deposit(
     let initializer = next_account_info(account_info_iter)?;
     let user_info_pda_account = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
+    let treasury_pda_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     if !initializer.is_signer {
@@ -162,7 +163,31 @@ pub fn deposit(
     account_data.serialize(&mut &mut user_info_pda_account.data.borrow_mut()[..])?;
     msg!("state account serialized");
 
-    //drift_interface::ID;
+    let (treasury_pda, _treasury_bump_seed) =
+        Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
+
+    msg!("Treasury PDA: {}", treasury_pda);
+
+    if treasury_pda != *treasury_pda_account.key {
+        msg!("Invalid seeds for Treasury PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let fees = amount * 0.02;
+
+    msg!("Depositing Fees to Treasury Pda...");
+    invoke(
+        &system_instruction::transfer(
+            initializer.key,
+            treasury_pda_account.key,
+            (fees * 1_000_000_000.0) as u64,
+        ),
+        &[
+            initializer.clone(),
+            treasury_pda_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
 
     let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
         &[vault_id.as_bytes().as_ref()],

@@ -1,5 +1,5 @@
 import { struct, u8, str, u32, f32 } from "@coral-xyz/borsh";
-import { Connection, Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { AccountMeta, Connection, Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { getInitializeDriftKeys } from "./drift";
 
@@ -74,21 +74,51 @@ export async function initializeVault(
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
 
-    const [vault_pda] = await PublicKey.findProgramAddressSync(
+    const [vault] = await PublicKey.findProgramAddressSync(
         [Buffer.from(vault_id)],
         programId
     );
 
-    console.log("Vault PDA is:", vault_pda.toBase58());
+    console.log("Vault PDA is:", vault.toBase58());
 
-    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
+    const [treasury] = await PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vault_id)],
+        programId
+    );
+
+    console.log("Treasury PDA is:", treasury.toBase58());
+
+    //const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: signer.publicKey,
+            isSigner: true,
+            isWritable: false,
+        },
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
 
     const transaction = new Transaction();
 
     const instruction = new TransactionInstruction({
         programId: programId,
         data: buffer,
-        keys: driftKeys,
+        keys,
     });
 
     transaction.add(instruction);
@@ -146,6 +176,13 @@ export async function deposit(
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
+    const [treasury] = await PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vault_id)],
+        programId
+    );
+
+    console.log("Treasury PDA is:", treasury.toBase58());
+
     const transaction = new Transaction();
 
     const instruction = new TransactionInstruction({
@@ -164,6 +201,11 @@ export async function deposit(
             },
             {
                 pubkey: vault_pda,
+                isSigner: false,
+                isWritable: true,
+            },
+            {
+                pubkey: treasury,
                 isSigner: false,
                 isWritable: true,
             },
@@ -230,6 +272,13 @@ export async function withdraw(
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
+    const [treasury] = await PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vault_id)],
+        programId
+    );
+
+    console.log("Treasury PDA is:", treasury.toBase58());
+
     const transaction = new Transaction();
 
     const instruction = new TransactionInstruction({
@@ -248,6 +297,11 @@ export async function withdraw(
             },
             {
                 pubkey: vault_pda,
+                isSigner: false,
+                isWritable: true,
+            },
+            {
+                pubkey: treasury,
                 isSigner: false,
                 isWritable: true,
             },

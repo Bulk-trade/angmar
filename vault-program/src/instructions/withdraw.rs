@@ -15,7 +15,7 @@ pub fn withdraw(
     accounts: &[AccountInfo],
     vault_id: String,
     user_pubkey: String,
-    amount: f32,
+    mut amount: f32,
     fund_status: String,
     bot_status: String,
 ) -> ProgramResult {
@@ -31,6 +31,7 @@ pub fn withdraw(
     let initializer = next_account_info(account_info_iter)?;
     let user_info_pda_account = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
+    let treasury_pda_account = next_account_info(account_info_iter)?;
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -111,6 +112,25 @@ pub fn withdraw(
     msg!("serializing account");
     account_data.serialize(&mut &mut user_info_pda_account.data.borrow_mut()[..])?;
     msg!("state account serialized");
+
+    let (treasury_pda, _treasury_bump_seed) =
+        Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
+
+    msg!("Treasury PDA: {}", treasury_pda);
+
+    if treasury_pda != *treasury_pda_account.key {
+        msg!("Invalid seeds for Treasury PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let fees = amount * 0.02;
+    amount -= fees;
+
+    let fees_in_lamports = (fees * 1_000_000_000.0) as u64;
+
+    msg!("Depositing Fees to Treasury Pda...");
+    **vault_pda_account.lamports.borrow_mut() -= fees_in_lamports;
+    **treasury_pda_account.lamports.borrow_mut() += fees_in_lamports;
 
     let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
         &[vault_id.as_bytes().as_ref()],
