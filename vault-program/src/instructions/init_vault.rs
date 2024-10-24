@@ -12,7 +12,7 @@ use solana_program::{
 
 use drift_interface::{
     initialize_user_invoke_signed, initialize_user_stats_invoke_signed, InitializeUserAccounts,
-    InitializeUserIxArgs, InitializeUserStatsAccounts, ID,
+    InitializeUserIxArgs, InitializeUserStatsAccounts
 };
 
 pub fn initialize_vault(
@@ -69,9 +69,6 @@ pub fn initialize_vault(
     )?;
 
     msg!("PDA created: {}", vault_pda);
-
-    msg!("drift_interface::ID: {}", ID);
-
     //Initialize user stats
     initialize_user_stats_invoke_signed(
         InitializeUserStatsAccounts {

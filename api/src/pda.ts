@@ -1,6 +1,7 @@
 import { struct, u8, str, u32, f32 } from "@coral-xyz/borsh";
 import { Connection, Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
+import { getInitializeDriftKeys } from "./drift";
 
 const vaultInstructionLayout = struct([
     u8("variant"),
@@ -80,28 +81,14 @@ export async function initializeVault(
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
+    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
+
     const transaction = new Transaction();
 
     const instruction = new TransactionInstruction({
         programId: programId,
         data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: vault_pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
+        keys: driftKeys,
     });
 
     transaction.add(instruction);
