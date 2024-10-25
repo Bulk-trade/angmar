@@ -62,16 +62,6 @@ export async function getInitializeDriftKeys(
 
     return [
         {
-            pubkey: signer,
-            isSigner: true,
-            isWritable: false,
-        },
-        {
-            pubkey: vault,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
             pubkey: user,
             isSigner: false,
             isWritable: true,
@@ -87,12 +77,12 @@ export async function getInitializeDriftKeys(
             isWritable: true,
         },
         {
-            pubkey: vault,
+            pubkey: signer,
             isSigner: true,
             isWritable: true,
         },
         {
-            pubkey: vault,
+            pubkey: signer,
             isSigner: true,
             isWritable: true,
         },

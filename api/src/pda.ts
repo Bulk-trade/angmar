@@ -61,12 +61,16 @@ export async function initializeVault(
     connection: Connection,
     vault_id: string,
 ) {
+
+    // Log the input parameters
+    console.log('Received init parameters:', { vault_id });
+
     let buffer = Buffer.alloc(1000);
-    const pubKey = vault_id.slice(0, 32); // Truncate to 32 bytes
+    const id = vault_id.slice(0, 32); // Truncate to 32 bytes
     vaultInstructionLayout.encode(
         {
             variant: 0,
-            vault_id: pubKey
+            vault_id: id
         },
         buffer
     );
@@ -74,21 +78,21 @@ export async function initializeVault(
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
 
-    const [vault] = await PublicKey.findProgramAddressSync(
+    const [vault] = PublicKey.findProgramAddressSync(
         [Buffer.from(vault_id)],
         programId
     );
 
     console.log("Vault PDA is:", vault.toBase58());
 
-    const [treasury] = await PublicKey.findProgramAddressSync(
+    const [treasury] = PublicKey.findProgramAddressSync(
         [Buffer.from("treasury"), Buffer.from(vault_id)],
         programId
     );
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    //const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
+    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
 
     const keys: AccountMeta[] = [
         {
@@ -106,12 +110,11 @@ export async function initializeVault(
             isSigner: false,
             isWritable: true,
         },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-    ]
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
 
     const transaction = new Transaction();
 
@@ -122,6 +125,15 @@ export async function initializeVault(
     });
 
     transaction.add(instruction);
+
+    transaction.feePayer = signer.publicKey!;
+
+    const latestBlockhash = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = latestBlockhash.blockhash;
+
+    transaction.sign(signer);
+
+    console.log(JSON.stringify(transaction, null, 2));
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${tx}`);
     console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);

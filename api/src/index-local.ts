@@ -36,6 +36,8 @@ app.post('/initVault', async (req, res) => {
             envVariableName: "PRIVATE_KEY",
         });
 
+        console.log(`Signer: ${signer.publicKey}`)
+
         await initializeVault(signer, vaultProgramId, connection, vault_id);
         res.status(200).send('Initialized Vault successfully');
     } catch (error) {
