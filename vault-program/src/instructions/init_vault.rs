@@ -10,11 +10,6 @@ use solana_program::{
     sysvar::{rent::Rent, Sysvar},
 };
 
-use drift_interface::{
-    initialize_user_invoke_signed, initialize_user_stats_invoke_signed, InitializeUserAccounts,
-    InitializeUserIxArgs, InitializeUserStatsAccounts,
-};
-
 pub fn initialize_vault(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -25,32 +20,32 @@ pub fn initialize_vault(
 
     let account_info_iter = &mut accounts.iter();
 
-    let initializer = next_account_info(account_info_iter)?;
-    let vault_pda_account = next_account_info(account_info_iter)?;
-    let treasury_pda_account = next_account_info(account_info_iter)?;
-    let user = next_account_info(account_info_iter)?;
-    let user_stats = next_account_info(account_info_iter)?;
-    let state = next_account_info(account_info_iter)?;
-    let authority = next_account_info(account_info_iter)?;
-    let payer = next_account_info(account_info_iter)?;
-    let user_rent = next_account_info(account_info_iter)?;
-    let system_program = next_account_info(account_info_iter)?;
-
     // let initializer = next_account_info(account_info_iter)?;
     // let vault_pda_account = next_account_info(account_info_iter)?;
     // let treasury_pda_account = next_account_info(account_info_iter)?;
+    // let user = next_account_info(account_info_iter)?;
+    // let user_stats = next_account_info(account_info_iter)?;
+    // let state = next_account_info(account_info_iter)?;
+    // let authority = next_account_info(account_info_iter)?;
+    // let payer = next_account_info(account_info_iter)?;
+    // let user_rent = next_account_info(account_info_iter)?;
     // let system_program = next_account_info(account_info_iter)?;
+
+    let initializer = next_account_info(account_info_iter)?;
+    let vault_pda_account = next_account_info(account_info_iter)?;
+    let treasury_pda_account = next_account_info(account_info_iter)?;
+    let system_program = next_account_info(account_info_iter)?;
 
     // Print each variable
     msg!("initializer: {}", initializer.key);
     msg!("vault_pda_account: {}", vault_pda_account.key);
     msg!("treasury_pda_account: {}", treasury_pda_account.key);
-    msg!("user: {}", user.key);
-    msg!("user_stats: {}", user_stats.key);
-    msg!("state: {}", state.key);
-    msg!("authority: {}", authority.key);
-    msg!("payer: {}", payer.key);
-    msg!("user_rent: {}", user_rent.key);
+    // msg!("user: {}", user.key);
+    // msg!("user_stats: {}", user_stats.key);
+    // msg!("state: {}", state.key);
+    // msg!("authority: {}", authority.key);
+    // msg!("payer: {}", payer.key);
+    // msg!("user_rent: {}", user_rent.key);
     msg!("system_program: {}", system_program.key);
 
     // if !initializer.is_signer {
@@ -118,41 +113,6 @@ pub fn initialize_vault(
     )?;
 
     msg!("Treasury PDA created: {}", treasury_pda);
-
-    //Initialize user stats
-    initialize_user_stats_invoke_signed(
-        InitializeUserStatsAccounts {
-            user_stats,
-            state,
-            authority,
-            payer,
-            rent: user_rent,
-            system_program,
-        },
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
-
-    let mut name = [0u8; 32];
-    let bytes = vault_id.as_bytes();
-    name[..bytes.len()].copy_from_slice(bytes);
-
-    //Initialize user
-    initialize_user_invoke_signed(
-        InitializeUserAccounts {
-            user,
-            user_stats,
-            state,
-            authority,
-            payer,
-            rent: user_rent,
-            system_program,
-        },
-        InitializeUserIxArgs {
-            sub_account_id: 0,
-            name: name,
-        },
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
 
     Ok(())
 }

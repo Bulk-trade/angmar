@@ -19,6 +19,9 @@ pub enum VaultInstruction {
         fund_status: String,
         bot_status: String,
     },
+    InitializeDrift {
+        vault_id: String,
+    },
 }
 
 #[derive(BorshDeserialize)]
@@ -53,6 +56,9 @@ impl VaultInstruction {
                 amount: payload.amount,
                 fund_status: payload.fund_status,
                 bot_status: payload.bot_status,
+            },
+            3 => Self::InitializeDrift {
+                vault_id: payload.vault_id,
             },
             _ => return Err(ProgramError::InvalidInstructionData),
         })

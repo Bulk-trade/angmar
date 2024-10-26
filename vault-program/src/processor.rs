@@ -1,5 +1,5 @@
 use crate::instruction::VaultInstruction;
-use crate::instructions::{deposit, initialize_vault, withdraw};
+use crate::instructions::{deposit, initialize_drift, initialize_vault, withdraw};
 use solana_program::{
     account_info::AccountInfo,
     entrypoint::ProgramResult,
@@ -15,7 +15,7 @@ pub fn process_instruction(
     match instruction {
         VaultInstruction::InitializeVault { vault_id } => {
             initialize_vault(program_id, accounts, vault_id)
-        }
+        },
         VaultInstruction::Deposit {
             vault_id,
             user_pubkey,
@@ -46,6 +46,9 @@ pub fn process_instruction(
             fund_status,
             bot_status,
         ),
+        VaultInstruction::InitializeDrift { vault_id } => {
+            initialize_drift(program_id, accounts, vault_id)
+        },
     }
 }
 

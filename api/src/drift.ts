@@ -57,7 +57,7 @@ export async function getInitializeDriftKeys(
     signer: PublicKey, programId: PublicKey, vaultId: String,
 ): Promise<AccountMeta[]> {
     const vault = getVaultPda(programId, vaultId);
-    const [user, userStats] = getDriftUser(vault);
+    const [user, userStats] = getDriftUser(signer);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 
     return [

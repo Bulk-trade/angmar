@@ -11,7 +11,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
+import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
 import bs58 from "bs58";
 
 dotenv.config();
@@ -39,6 +39,25 @@ app.post('/initVault', async (req, res) => {
         console.log(`Signer: ${signer.publicKey}`)
 
         await initializeVault(signer, vaultProgramId, connection, vault_id);
+        res.status(200).send('Initialized Vault successfully');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error initializing Vault');
+    }
+});
+
+app.post('/initDrift', async (req, res) => {
+    try {
+        const { vault_id } = req.body;
+
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY",
+        });
+
+        console.log(`Signer: ${signer.publicKey}`)
+
+        await initializeDrift(signer, vaultProgramId, connection, vault_id);
         res.status(200).send('Initialized Vault successfully');
     } catch (error) {
         console.error(error);
