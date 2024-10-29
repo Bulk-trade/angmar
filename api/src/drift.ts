@@ -1,4 +1,4 @@
-import { DRIFT_PROGRAM_ID, getDriftStateAccountPublicKey, getUserAccountPublicKeySync, getUserStatsAccountPublicKey } from "@drift-labs/sdk";
+import { DRIFT_PROGRAM_ID, getDriftStateAccountPublicKey, getUserAccountPublicKeySync, getUserStatsAccountPublicKey, sigNum } from "@drift-labs/sdk";
 import {
     PublicKey,
     SystemProgram,
@@ -56,11 +56,24 @@ const remainingAccountsForOrders = [
 export async function getInitializeDriftKeys(
     signer: PublicKey, programId: PublicKey, vaultId: String,
 ): Promise<AccountMeta[]> {
+    const [vault_signer] = PublicKey.findProgramAddressSync(
+        [Buffer.from("signer"), Buffer.from(vaultId)],
+        programId
+    );
+
+    console.log(`Vault Signer PDA is: ${vault_signer}`);
+
     const vault = getVaultPda(programId, vaultId);
-    const [user, userStats] = getDriftUser(signer);
+    const [user, userStats] = getDriftUser(vault_signer);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+   
 
     return [
+        {
+            pubkey: new PublicKey('dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH'),
+            isSigner: false,
+            isWritable: false,
+        },
         {
             pubkey: user,
             isSigner: false,
@@ -78,12 +91,12 @@ export async function getInitializeDriftKeys(
         },
         {
             pubkey: signer,
-            isSigner: true,
+            isSigner: false,
             isWritable: true,
         },
         {
             pubkey: signer,
-            isSigner: true,
+            isSigner: false,
             isWritable: true,
         },
         {
@@ -99,9 +112,49 @@ export async function getInitializeDriftKeys(
     ]
 }
 
+export async function getDriftKeys(
+    spotMarketIndex: number,
+    signer: PublicKey,
+    programId: PublicKey,
+    vaultId: String,
+) {
+
+    const vault = getVaultPda(programId, vaultId);
+
+    const driftState = await this.driftClient.getStatePublicKey();
+    const spotMarket = this.driftClient.getSpotMarketAccount(
+        spotMarketIndex
+    );
+    if (!spotMarket) {
+        throw new Error(
+            `Spot market ${spotMarketIndex} not found on driftClient`
+        );
+    }
+
+    const userStatsKey = getUserStatsAccountPublicKey(
+        this.driftClient.program.programId,
+        vault
+    );
+    const userKey = getUserAccountPublicKeySync(
+        this.driftClient.program.programId,
+        vault
+    );
+
+    const accounts = {
+        driftSpotMarket: spotMarket.pubkey,
+        driftSpotMarketMint: spotMarket.mint,
+        driftUserStats: userStatsKey,
+        driftUser: userKey,
+        driftState,
+        vault,
+    };
+
+    return accounts;
+}
+
 function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
     return [
-        getUserAccountPublicKeySync(DRIFT_PROGRAM, vault, subAccountId),
+        getUserAccountPublicKeySync(DRIFT_PROGRAM, vault),
         getUserStatsAccountPublicKey(DRIFT_PROGRAM, vault),
     ];
 }

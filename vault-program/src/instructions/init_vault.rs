@@ -34,12 +34,14 @@ pub fn initialize_vault(
     let initializer = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
     let treasury_pda_account = next_account_info(account_info_iter)?;
+    //let signer_pda_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     // Print each variable
     msg!("initializer: {}", initializer.key);
     msg!("vault_pda_account: {}", vault_pda_account.key);
     msg!("treasury_pda_account: {}", treasury_pda_account.key);
+    // msg!("signer_pda_account: {}", treasury_pda_account.key);
     // msg!("user: {}", user.key);
     // msg!("user_stats: {}", user_stats.key);
     // msg!("state: {}", state.key);
@@ -113,6 +115,38 @@ pub fn initialize_vault(
     )?;
 
     msg!("Treasury PDA created: {}", treasury_pda);
+
+
+    // // Create Treasury PDA
+    // let (signer_pda, signer_bump_seed) =
+    //     Pubkey::find_program_address(&[b"signer", vault_id.as_bytes().as_ref()], program_id);
+
+    // if signer_pda != *signer_pda_account.key {
+    //     msg!("Invalid seeds for Signer PDA");
+    //     return Err(ProgramError::InvalidArgument);
+    // }
+
+    // invoke_signed(
+    //     &system_instruction::create_account(
+    //         initializer.key,
+    //         signer_pda_account.key,
+    //         rent_lamports,
+    //         0,
+    //         program_id,
+    //     ),
+    //     &[
+    //         initializer.clone(),
+    //         signer_pda_account.clone(),
+    //         system_program.clone(),
+    //     ],
+    //     &[&[
+    //         b"signer",
+    //         vault_id.as_bytes().as_ref(),
+    //         &[signer_bump_seed],
+    //     ]],
+    // )?;
+
+    // msg!("Signer PDA created: {}", treasury_pda);
 
     Ok(())
 }

@@ -1,14 +1,11 @@
 use solana_program::{
-    account_info::{next_account_info, AccountInfo},
-    entrypoint::ProgramResult,
-    msg,
-    program_error::ProgramError,
-    pubkey::Pubkey,
+    account_info::{next_account_info, AccountInfo}, entrypoint::ProgramResult, instruction::AccountMeta, msg, program::invoke, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey
 };
 
 use drift_interface::{
-    initialize_user_invoke_signed, initialize_user_stats_invoke, initialize_user_stats_invoke_signed, InitializeUserAccounts,
-    InitializeUserIxArgs, InitializeUserStatsAccounts,
+    initialize_user_invoke_signed, initialize_user_stats_invoke,
+    initialize_user_stats_invoke_signed, initialize_user_stats_ix, InitializeUserAccounts,
+    InitializeUserIxArgs, InitializeUserStatsAccounts, InitializeUserStatsKeys, ID,
 };
 
 pub fn initialize_drift(
@@ -24,6 +21,7 @@ pub fn initialize_drift(
     let initializer = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
     let treasury_pda_account = next_account_info(account_info_iter)?;
+    let drift_program = next_account_info(account_info_iter)?;
     let user = next_account_info(account_info_iter)?;
     let user_stats = next_account_info(account_info_iter)?;
     let state = next_account_info(account_info_iter)?;
@@ -35,6 +33,7 @@ pub fn initialize_drift(
     msg!("initializer: {}", initializer.key);
     msg!("vault_pda_account: {}", vault_pda_account.key);
     msg!("treasury_pda_account: {}", treasury_pda_account.key);
+    msg!("drift_program: {}", drift_program.key);
     msg!("user: {}", user.key);
     msg!("user_stats: {}", user_stats.key);
     msg!("state: {}", state.key);
@@ -48,7 +47,7 @@ pub fn initialize_drift(
     //     return Err(ProgramError::MissingRequiredSignature);
     // }
 
-    let (vault_pda, _vault_bump_seed) =
+    let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
     if vault_pda != *vault_pda_account.key {
@@ -82,16 +81,84 @@ pub fn initialize_drift(
     //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
     // )?;
 
-    initialize_user_stats_invoke(
-        InitializeUserStatsAccounts {
-            user_stats,
-            state,
-            authority,
-            payer,
-            rent,
-            system_program,
-        }
+    // let (authority_pda, signer_bump) = Pubkey::find_program_address(&[b"signer", vault_id.as_bytes().as_ref()], program_id);
+
+    // if authority_pda != *authority.key {
+    //     msg!("Invalid seeds for Authority PDA");
+    //     return Err(ProgramError::InvalidArgument);
+    // }
+    
+    let accounts = InitializeUserStatsAccounts {
+        user_stats,
+        state,
+        authority,
+        payer,
+        rent,
+        system_program,
+    };
+
+    let keys: InitializeUserStatsKeys = InitializeUserStatsKeys::from(accounts);
+
+    let ix = initialize_user_stats_ix(keys)?;
+
+     if drift_interface::ID != *drift_program.key {
+        msg!("Invalid Drift Program");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+//    let ix =  solana_program::instruction::Instruction{
+//     program_id: *drift_program.key,
+//     accounts: vec![
+//         // AccountMeta::new(*drift_program.key, false),
+//         AccountMeta::new(*user_stats.key, false),
+//         AccountMeta::new(*state.key, false),
+//         AccountMeta::new(*authority.key, true),
+//         AccountMeta::new(*payer.key, true),
+//         AccountMeta::new_readonly(*rent.key, false),
+//         AccountMeta::new_readonly(*system_program.key, false)
+//     ],
+//     data: Vec::new()
+//    };
+
+    // invoke_signed(
+    //     &ix,
+    //     &[
+    //         drift_program.clone(),
+    //         user_stats.clone(),
+    //         state.clone(),
+    //         authority.clone(),
+    //         payer.clone(),
+    //         rent.clone(),
+    //         system_program.clone(),
+    //     ],
+    //     &[&[
+    //         b"signer",
+    //         vault_id.as_bytes().as_ref(),
+    //         &[signer_bump],
+    //     ]],
+    // )?;
+
+     invoke(
+        &ix,
+        &[
+            drift_program.clone(),
+            user_stats.clone(),
+            state.clone(),
+            authority.clone(),
+            payer.clone(),
+            rent.clone(),
+            system_program.clone(),
+        ]
     )?;
+
+    // initialize_user_stats_invoke(InitializeUserStatsAccounts {
+    //     user_stats,
+    //     state,
+    //     authority,
+    //     payer,
+    //     rent,
+    //     system_program,
+    // })?;
 
     // let mut name = [0u8; 32];
     // let bytes = vault_id.as_bytes();

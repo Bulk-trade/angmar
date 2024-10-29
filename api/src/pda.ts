@@ -1,7 +1,8 @@
 import { struct, u8, str, u32, f32 } from "@coral-xyz/borsh";
-import { AccountMeta, Connection, Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { AccountMeta, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { getInitializeDriftKeys } from "./drift";
+import {createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction} from "@solana/spl-token"
 
 const vaultInstructionLayout = struct([
     u8("variant"),
@@ -61,7 +62,6 @@ export async function initializeVault(
     connection: Connection,
     vault_id: string,
 ) {
-
     // Log the input parameters
     console.log('Received init parameters:', { vault_id });
 
@@ -92,8 +92,7 @@ export async function initializeVault(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    //const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
-
+   
     const keys: AccountMeta[] = [
         {
             pubkey: signer.publicKey,
@@ -121,13 +120,13 @@ export async function initializeVault(
 
     const transaction = new Transaction();
 
-    const instruction = new TransactionInstruction({
+    const Ix = new TransactionInstruction({
         programId: programId,
         data: buffer,
         keys,
     });
 
-    transaction.add(instruction);
+    transaction.add(Ix)
 
     transaction.feePayer = signer.publicKey!;
 
@@ -148,6 +147,25 @@ export async function initializeDrift(
     connection: Connection,
     vault_id: string,
 ) {
+
+    const newAccount = Keypair.generate()
+
+    const createSeedsIx = SystemProgram.createAccountWithSeed({
+        fromPubkey: signer.publicKey,
+        newAccountPubkey: newAccount.publicKey,
+        basePubkey: signer.publicKey,
+        seed: 'seed',
+        lamports: 0.05 * LAMPORTS_PER_SOL,
+        space: 1024,
+        programId: TOKEN_PROGRAM_ID,
+    })
+
+    const initAccountIx = createInitializeAccountInstruction(
+        newAccount.publicKey,
+        new PublicKey('So11111111111111111111111111111111111111112'),
+        signer.publicKey,
+        TOKEN_PROGRAM_ID,
+    )
 
     // Log the input parameters
     console.log('Received init drift parameters:', { vault_id });
@@ -205,13 +223,13 @@ export async function initializeDrift(
 
     const transaction = new Transaction();
 
-    const instruction = new TransactionInstruction({
+    const driftIx = new TransactionInstruction({
         programId: programId,
         data: buffer,
         keys,
     });
 
-    transaction.add(instruction);
+    transaction.add(createSeedsIx, initAccountIx, driftIx);
 
     transaction.feePayer = signer.publicKey!;
 
@@ -220,7 +238,7 @@ export async function initializeDrift(
 
     transaction.sign(signer);
 
-    console.log(JSON.stringify(transaction, null, 2));
+    //console.log(JSON.stringify(transaction, null, 2));
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${tx}`);
     console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
