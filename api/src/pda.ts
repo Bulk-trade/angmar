@@ -148,11 +148,13 @@ export async function initializeDrift(
     vault_id: string,
 ) {
 
-    const newAccount = Keypair.generate()
+    //const newAccount = Keypair.generate()
+
+    const seedPubkey = await PublicKey.createWithSeed(signer.publicKey, 'seed', TOKEN_PROGRAM_ID);
 
     const createSeedsIx = SystemProgram.createAccountWithSeed({
         fromPubkey: signer.publicKey,
-        newAccountPubkey: newAccount.publicKey,
+        newAccountPubkey: seedPubkey,
         basePubkey: signer.publicKey,
         seed: 'seed',
         lamports: 0.05 * LAMPORTS_PER_SOL,
@@ -161,7 +163,7 @@ export async function initializeDrift(
     })
 
     const initAccountIx = createInitializeAccountInstruction(
-        newAccount.publicKey,
+        seedPubkey,
         new PublicKey('So11111111111111111111111111111111111111112'),
         signer.publicKey,
         TOKEN_PROGRAM_ID,
