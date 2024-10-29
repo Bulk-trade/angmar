@@ -3,41 +3,24 @@ import {
     PublicKey,
     SystemProgram,
     AccountMeta,
+    SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
-// import {
-//     DRIFT_PROGRAM_ID,
-//     getDriftStateAccountPublicKey,
-//     getUserAccountPublicKeySync,
-//     getUserStatsAccountPublicKey,
-//     MarketType,
-//     OrderParams,
-//     DriftClient as _DriftClient,
-//     initialize as _initialize,
-//     PositionDirection,
-//     BulkAccountLoader,
-//     decodeUser,
-// } from "@drift-labs/sdk";
 
-// import { BaseClient, ApiTxOptions } from "./base";
 const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
-const DRIFT_VAULT = new PublicKey(
-    "JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw"
-);
-const DRIFT_MARGIN_PRECISION = 10_000;
 
-const remainingAccountsForOrders = [
+const remainingAccountsForOrders: AccountMeta[] = [
     {
-        pubkey: new PublicKey("BAtFj4kQttZRVep3UZS2aZRDixkGYgWsbqTBVDbnSsPF"), // sol pricing oracle
+        pubkey: new PublicKey("BAtFj4kQttZRVep3UZS2aZRDixkGYgWsbqTBVDbnSsPF"), // sol price oracle
         isWritable: false,
         isSigner: false,
     },
     {
-        pubkey: new PublicKey("En8hkHLkRe9d9DraYmBTrus518BvmVH448YcvmrFM6Ce"), // usdc pricing oracle
+        pubkey: new PublicKey("En8hkHLkRe9d9DraYmBTrus518BvmVH448YcvmrFM6Ce"), // usdc price oracle
         isWritable: false,
         isSigner: false,
     },
     {
-        pubkey: new PublicKey("3x85u7SWkmmr7YQGYhtjARgxwegTLJgkSLRprfXod6rh"), // sol spot market account
+        pubkey: new PublicKey("3x85u7SWkmmr7YQGYhtjARgxwegTLJgkSLRprfXod6rh"), // sol spot market
         isWritable: true,
         isSigner: false,
     },
@@ -47,70 +30,58 @@ const remainingAccountsForOrders = [
         isSigner: false,
     },
     {
-        pubkey: new PublicKey("8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W"), // sol perp market account
+        pubkey: new PublicKey("8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W"), // sol perp market
         isWritable: true,
         isSigner: false,
     },
 ];
 
 export async function getInitializeDriftKeys(
-    signer: PublicKey, programId: PublicKey, vaultId: String,
+    authority: PublicKey,
+    signer: PublicKey,     // Added signer parameter
+    programId: PublicKey,
+    vaultId: string
 ): Promise<AccountMeta[]> {
-    const vault = getVaultPda(programId, vaultId);
-    const [user, userStats] = getDriftUser(signer);
-    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+    const vaultPdaAccount = authority; // Authority is vaultPdaAccount
+    const [userAccount, userStatsAccount] = getDriftUserAccounts(vaultPdaAccount);
+    const stateAccount = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+    const [driftSigner] = PublicKey.findProgramAddressSync(
+        [Buffer.from("drift_signer")],
+        DRIFT_PROGRAM
+    );
 
     return [
-        {
-            pubkey: user,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: userStats,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: state,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: signer,
-            isSigner: true,
-            isWritable: true,
-        },
-        {
-            pubkey: signer,
-            isSigner: true,
-            isWritable: true,
-        },
-        {
-            pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'),
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-    ]
-}
-
-function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
-    return [
-        getUserAccountPublicKeySync(DRIFT_PROGRAM, vault, subAccountId),
-        getUserStatsAccountPublicKey(DRIFT_PROGRAM, vault),
+        { pubkey: userAccount, isSigner: false, isWritable: true },          // user
+        { pubkey: userStatsAccount, isSigner: false, isWritable: true },     // user_stats
+        { pubkey: stateAccount, isSigner: false, isWritable: false },        // state
+        { pubkey: vaultPdaAccount, isSigner: false, isWritable: false },     // authority (vault PDA)
+        { pubkey: signer, isSigner: true, isWritable: true },                // payer
+        { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },  // rent sysvar
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system program
+        { pubkey: driftSigner, isSigner: false, isWritable: false },         // drift_signer
+        // Remaining accounts
+        ...remainingAccountsForOrders,
     ];
 }
 
-function getVaultPda(programId: PublicKey, vaultId: String) {
+function getDriftUserAccounts(vault: PublicKey, subAccountId: number = 0): [PublicKey, PublicKey] {
+    const userAccount = getUserAccountPublicKeySync(DRIFT_PROGRAM, vault, subAccountId);
+    const userStatsAccount = getUserStatsAccountPublicKey(DRIFT_PROGRAM, vault);
+    return [userAccount, userStatsAccount];
+}
+
+function getVaultPda(programId: PublicKey, vaultId: string): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
         [Buffer.from(vaultId)],
         programId
     );
+    return pda;
+}
 
+function getTreasuryPda(programId: PublicKey, vaultId: string): PublicKey {
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vaultId)],
+        programId
+    );
     return pda;
 }

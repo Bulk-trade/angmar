@@ -11,7 +11,14 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
+import {
+    deposit,
+    initializeDrift,
+    initializeVault,
+    readPdaInfo,
+    updateUserInfo,
+    withdraw
+} from './pda';
 import bs58 from "bs58";
 
 dotenv.config();
@@ -140,4 +147,3 @@ app.listen(PORT, async () => {
 
     //await readPdaInfo(signer, vaultProgramId, connection, 'sunit01')
 });
-
