@@ -1,0 +1,113 @@
+{
+  "version": "0.1.0",
+  "name": "vault_program",
+  "instructions": [],
+  "types": [
+    {
+      "name": "VaultPayload",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "vaultId",
+            "type": "string"
+          },
+          {
+            "name": "userPubkey",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "defined": "f32"
+            }
+          },
+          {
+            "name": "fundStatus",
+            "type": "string"
+          },
+          {
+            "name": "botStatus",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VaultAccountState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "isInitialized",
+            "type": "bool"
+          },
+          {
+            "name": "vaultId",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserInfoAccountState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "isInitialized",
+            "type": "bool"
+          },
+          {
+            "name": "vaultId",
+            "type": "string"
+          },
+          {
+            "name": "userPubkey",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "defined": "f32"
+            }
+          },
+          {
+            "name": "fundStatus",
+            "type": "string"
+          },
+          {
+            "name": "botStatus",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "UninitializedAccount",
+      "msg": "Account not initialized yet"
+    },
+    {
+      "code": 1,
+      "name": "InvalidPDA",
+      "msg": "PDA derived does not equal PDA passed in"
+    },
+    {
+      "code": 2,
+      "name": "InvalidDataLength",
+      "msg": "Input data exceeds max length"
+    },
+    {
+      "code": 3,
+      "name": "InvalidInput",
+      "msg": "Input data is invalid"
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "5rg7yqJF2LpMHLvxy9iKaurrwcAEtMyPXit85wm9XSY5"
+  }
+}

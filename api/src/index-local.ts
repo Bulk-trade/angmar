@@ -13,6 +13,7 @@ import {
 import cors from 'cors';
 import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
 import bs58 from "bs58";
+import { DriftClient, getDriftStateAccountPublicKey } from '@drift-labs/sdk';
 
 dotenv.config();
 
@@ -128,10 +129,24 @@ app.post('/updateUserInfo', async (req, res) => {
     }
 });
 
+export async function isDriftInitialized(driftClient: DriftClient) {
+    const stateAccountRPCResponse =
+        await driftClient.connection.getParsedAccountInfo(
+            await driftClient.getStatePublicKey()
+        );
+    if (stateAccountRPCResponse.value !== null) {
+        return true;
+    }
+    return false;
+}
+
 const PORT = process.env.PORT || 4001;
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`BULK Vault Program Id: ${vaultProgramId.toString()}`);
+    const drift = new PublicKey('dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH');
+   
+    
 
     // const signer = await initializeKeypair(connection, {
     //     airdropAmount: LAMPORTS_PER_SOL,

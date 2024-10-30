@@ -12,6 +12,9 @@ deploy_output=$(solana program deploy ./target/deploy/vault_program.so)
 # Extract the Program ID from the output using awk
 program_id=$(echo "$deploy_output" | awk '/Program Id:/ {print $3}')
 
+# Generate IDL with shank cli
+shank idl -p $program_id
+
 # Print the Program ID
 echo "Program ID: $program_id"
 

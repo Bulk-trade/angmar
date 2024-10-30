@@ -1,2 +1,5 @@
 /test-ledger
 /target
+
+# Dependency directories
+node_modules/
