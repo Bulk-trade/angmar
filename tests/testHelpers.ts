@@ -254,9 +254,9 @@ export async function createUSDCAccountForUser(
 	return userUSDCAccount.publicKey;
 }
 
-export async function isDriftInitialized(driftClient: DriftClient) {
+export async function isDriftInitialized(connection: Connection ,driftClient: DriftClient) {
 	const stateAccountRPCResponse =
-		await driftClient.connection.getParsedAccountInfo(
+		await connection.getParsedAccountInfo(
 			await driftClient.getStatePublicKey()
 		);
 	if (stateAccountRPCResponse.value !== null) {
