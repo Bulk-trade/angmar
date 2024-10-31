@@ -14,6 +14,7 @@ import cors from 'cors';
 import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
 import bs58 from "bs58";
 import { DriftClient, getDriftStateAccountPublicKey } from '@drift-labs/sdk';
+import { setup } from './local-setup/index';
 
 dotenv.config();
 
@@ -146,6 +147,7 @@ app.listen(PORT, async () => {
     console.log(`BULK Vault Program Id: ${vaultProgramId.toString()}`);
     const drift = new PublicKey('dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH');
    
+    if (isDriftInitialized())
     
 
     // const signer = await initializeKeypair(connection, {
@@ -154,5 +156,7 @@ app.listen(PORT, async () => {
     // });
 
     //await readPdaInfo(signer, vaultProgramId, connection, 'sunit01')
+
+    //await setup()
 });
 

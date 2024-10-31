@@ -99,31 +99,30 @@ export async function mockOracle(
 	return priceFeedAddress;
 }
 
+//done
 export async function mockUSDCMint(
-	provider: Provider,
+	connection: Connection,
+	signer: Keypair,
 	mint?: Keypair
 ): Promise<Keypair> {
 	let fakeUSDCMint: Keypair;
 	if (mint) {
 		fakeUSDCMint = mint;
 	} else {
-		fakeUSDCMint = anchor.web3.Keypair.generate();
+		fakeUSDCMint = Keypair.generate();
 	}
 	const createUSDCMintAccountIx = SystemProgram.createAccount({
-		// @ts-ignore
-		fromPubkey: provider.wallet.publicKey,
+		fromPubkey: signer.publicKey,
 		newAccountPubkey: fakeUSDCMint.publicKey,
-		lamports: await getMinimumBalanceForRentExemptMint(provider.connection),
+		lamports: await getMinimumBalanceForRentExemptMint(connection),
 		space: MintLayout.span,
 		programId: TOKEN_PROGRAM_ID,
 	});
 	const initCollateralMintIx = createInitializeMintInstruction(
 		fakeUSDCMint.publicKey,
 		6,
-		// @ts-ignore
-		provider.wallet.publicKey,
-		// @ts-ignore
-		provider.wallet.publicKey
+		signer.publicKey,
+		signer.publicKey
 	);
 
 	const fakeUSDCTx = new Transaction();
@@ -131,10 +130,9 @@ export async function mockUSDCMint(
 	fakeUSDCTx.add(initCollateralMintIx);
 
 	await sendAndConfirmTransaction(
-		provider.connection,
+		connection,
 		fakeUSDCTx,
-		// @ts-ignore
-		[provider.wallet.payer, fakeUSDCMint],
+		[signer, fakeUSDCMint],
 		{
 			skipPreflight: false,
 			commitment: 'recent',
