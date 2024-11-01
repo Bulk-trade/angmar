@@ -1,11 +1,16 @@
 use solana_program::{
-    account_info::{next_account_info, AccountInfo}, entrypoint::ProgramResult, instruction::AccountMeta, msg, program::invoke, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    instruction::AccountMeta,
+    msg,
+    program::invoke,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
 };
 
 use drift_interface::{
-    initialize_user_invoke_signed, initialize_user_stats_invoke,
-    initialize_user_stats_invoke_signed, initialize_user_stats_ix, InitializeUserAccounts,
-    InitializeUserIxArgs, InitializeUserStatsAccounts, InitializeUserStatsKeys, ID,
+    initialize_user_invoke_signed, initialize_user_ix, initialize_user_stats_invoke, initialize_user_stats_invoke_signed, initialize_user_stats_ix, InitializeUserAccounts, InitializeUserIxArgs, InitializeUserKeys, InitializeUserStatsAccounts, InitializeUserStatsKeys, ID
 };
 
 pub fn initialize_drift(
@@ -29,6 +34,7 @@ pub fn initialize_drift(
     let payer = next_account_info(account_info_iter)?;
     let rent = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
+
     // Print each variable
     msg!("initializer: {}", initializer.key);
     msg!("vault_pda_account: {}", vault_pda_account.key);
@@ -87,8 +93,13 @@ pub fn initialize_drift(
     //     msg!("Invalid seeds for Authority PDA");
     //     return Err(ProgramError::InvalidArgument);
     // }
-    
-    let accounts = InitializeUserStatsAccounts {
+
+    if drift_interface::ID != *drift_program.key {
+        msg!("Invalid Drift Program");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    let user_stats_accounts = InitializeUserStatsAccounts {
         user_stats,
         state,
         authority,
@@ -97,28 +108,69 @@ pub fn initialize_drift(
         system_program,
     };
 
-    let keys: InitializeUserStatsKeys = InitializeUserStatsKeys::from(accounts);
+    let user_stats_keys: InitializeUserStatsKeys =
+        InitializeUserStatsKeys::from(user_stats_accounts);
 
-    let ix = initialize_user_stats_ix(keys)?;
+    let user_stats_ix = initialize_user_stats_ix(user_stats_keys)?;
 
-     if drift_interface::ID != *drift_program.key {
-        msg!("Invalid Drift Program");
-        return Err(ProgramError::InvalidArgument);
-    }
+    invoke(
+        &user_stats_ix,
+        &[
+            drift_program.clone(),
+            user_stats.clone(),
+            state.clone(),
+            authority.clone(),
+            payer.clone(),
+            rent.clone(),
+            system_program.clone(),
+        ],
+    )?;
 
-//    let ix =  solana_program::instruction::Instruction{
-//     program_id: *drift_program.key,
-//     accounts: vec![
-//         // AccountMeta::new(*drift_program.key, false),
-//         AccountMeta::new(*user_stats.key, false),
-//         AccountMeta::new(*state.key, false),
-//         AccountMeta::new(*authority.key, true),
-//         AccountMeta::new(*payer.key, true),
-//         AccountMeta::new_readonly(*rent.key, false),
-//         AccountMeta::new_readonly(*system_program.key, false)
-//     ],
-//     data: Vec::new()
-//    };
+     let user_accounts = InitializeUserAccounts {
+        user,
+        user_stats,
+        state,
+        authority,
+        payer,
+        rent,
+        system_program,
+    };
+
+    let user_keys: InitializeUserKeys = InitializeUserKeys::from(user_accounts);
+    let user_args = InitializeUserIxArgs {
+        sub_account_id: 0,
+        name: [1; 32],
+    };
+
+    let user_ix = initialize_user_ix(user_keys, user_args)?;
+
+      invoke(
+        &user_ix,
+        &[
+            drift_program.clone(),
+            user.clone(),
+            user_stats.clone(),
+            state.clone(),
+            authority.clone(),
+            payer.clone(),
+            rent.clone(),
+            system_program.clone(),
+        ]
+    )?;
+
+    //    let ix =  solana_program::instruction::Instruction{
+    //     program_id: *drift_program.key,
+    //     accounts: vec![
+    //         // AccountMeta::new(*drift_program.key, false),
+    //         AccountMeta::new(*user_stats.key, false),
+    //         AccountMeta::new(*state.key, false),
+    //         AccountMeta::new(*authority.key, true),
+    //         AccountMeta::new(*payer.key, true),
+    //         AccountMeta::new_readonly(*rent.key, false),
+    //         AccountMeta::new_readonly(*system_program.key, false)
+    //     ],
+    //     data: Vec::new()
+    //    };
 
     // invoke_signed(
     //     &ix,
@@ -137,19 +189,6 @@ pub fn initialize_drift(
     //         &[signer_bump],
     //     ]],
     // )?;
-
-     invoke(
-        &ix,
-        &[
-            drift_program.clone(),
-            user_stats.clone(),
-            state.clone(),
-            authority.clone(),
-            payer.clone(),
-            rent.clone(),
-            system_program.clone(),
-        ]
-    )?;
 
     // initialize_user_stats_invoke(InitializeUserStatsAccounts {
     //     user_stats,

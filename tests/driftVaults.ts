@@ -99,7 +99,7 @@ let oracleInfos: OracleInfo[] = [];
 // initialize adminClient first to make sure program is bootstrapped
 mockUSDCMint(provider, usdcMint)
 	.then(async () => {
-		if (adminClient && (await isDriftInitialized(connection, adminClient))) {
+		if (adminClient && (await isDriftInitialized(adminClient))) {
 			console.log('Drift already initialized');
 			return;
 		}
@@ -160,14 +160,14 @@ mockUSDCMint(provider, usdcMint)
 
 describe('driftInit', () => {
 	before(async () => {
-		while (!adminInitialized || !(await isDriftInitialized(connection, adminClient))) {
-			console.log('TestDriftVaults: waiting for AdminClient...');
+		while (!adminInitialized || !(await isDriftInitialized(adminClient))) {
+			console.log('TestDriftInit: waiting for AdminClient...');
 			await sleep(1000);
 		}
 	});
 	it('should check if Drift is initialized', async () => {
 		console.log(`Rpc url: ${connection.rpcEndpoint}`);
-		const isInitialized = await isDriftInitialized(connection, adminClient);
+		const isInitialized = await isDriftInitialized(adminClient);
 		expect(isInitialized).to.be.true;
 	});
 });

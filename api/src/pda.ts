@@ -1,5 +1,5 @@
 import { struct, u8, str, u32, f32 } from "@coral-xyz/borsh";
-import { AccountMeta, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { getInitializeDriftKeys } from "./drift";
 import {createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction} from "@solana/spl-token"
@@ -224,6 +224,11 @@ export async function initializeDrift(
     console.log(`Keys Length: ${keys.length}`);
 
     const transaction = new Transaction();
+    
+    const additionalComputeBudgetInstruction =
+        ComputeBudgetProgram.setComputeUnitLimit({
+            units: 4_000_000,
+        });
 
     const driftIx = new TransactionInstruction({
         programId: programId,
@@ -231,7 +236,7 @@ export async function initializeDrift(
         keys,
     });
 
-    transaction.add(createSeedsIx, initAccountIx, driftIx);
+    transaction.add( additionalComputeBudgetInstruction, driftIx);
 
     transaction.feePayer = signer.publicKey!;
 

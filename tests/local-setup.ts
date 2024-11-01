@@ -32,7 +32,6 @@ import {
     DRIFT_PROGRAM_ID,
     OrderType,
     isVariant,
-    Wallet,
 } from '@drift-labs/sdk';
 import {
     bootstrapSignerClientAndUser,
@@ -52,8 +51,8 @@ import {
     validateTotalUserShares,
 } from './testHelpers';
 import { getMint } from '@solana/spl-token';
-import { ConfirmOptions, Connection, Keypair, LAMPORTS_PER_SOL, Signer } from '@solana/web3.js';
-import { assert } from 'chai';
+import { ConfirmOptions, Keypair, Signer } from '@solana/web3.js';
+import { assert, expect } from 'chai';
 import {
     VaultClient,
     getTokenizedVaultMintAddressSync,
@@ -67,19 +66,24 @@ import {
 } from '@drift-labs/vaults-sdk';
 
 import { Metaplex } from '@metaplex-foundation/js';
-import { sign } from 'crypto';
-import { initializeKeypair } from '@solana-developers/helpers';
 
-const BULK_PROGRAM_ID = process.env.PROGRAM_ID || '';
-const connection = new Connection("http://localhost:8899", "confirmed");
-const vaultProgramId = new PublicKey(
-    BULK_PROGRAM_ID
-);
-
+// ammInvariant == k == x * y
 const mantissaSqrtScale = new BN(100_000);
 const ammInitialQuoteAssetReserve = new BN(5 * 10 ** 13).mul(mantissaSqrtScale);
 const ammInitialBaseAssetReserve = new BN(5 * 10 ** 13).mul(mantissaSqrtScale);
 
+const opts: ConfirmOptions = {
+    preflightCommitment: 'confirmed',
+    skipPreflight: false,
+    commitment: 'confirmed',
+};
+
+// Configure the client to use the local cluster.
+const provider = anchor.AnchorProvider.local();
+anchor.setProvider(provider);
+const connection = provider.connection;
+
+const program = anchor.workspace.DriftVaults as Program<DriftVaults>;
 const usdcMint = Keypair.generate();
 let solPerpOracle: PublicKey;
 const metaplex = Metaplex.make(connection);
@@ -92,28 +96,24 @@ let perpMarketIndexes: number[] = [];
 let spotMarketIndexes: number[] = [];
 let oracleInfos: OracleInfo[] = [];
 
-export async function setup() {
-    const signer = await initializeKeypair(connection, {
-        airdropAmount: LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY",
-    });
+// initialize adminClient first to make sure program is bootstrapped
 
-    // initialize adminClient first to make sure program is bootstrapped
-    await mockUSDCMint(connection, signer, usdcMint);
-
-    if (adminClient && (await isDriftInitialized(adminClient))) {
-        console.log('Drift already initialized');
-        return;
-    }
+export async function localnetSetup() {
+    await mockUSDCMint(provider, usdcMint)
 
     try {
+        if (adminClient && (await isDriftInitialized(adminClient))) {
+            console.log('Drift already initialized');
+            return;
+        }
+
         solPerpOracle = await mockOracle(initialSolPerpPrice, undefined, undefined);
         perpMarketIndexes = [0];
         spotMarketIndexes = [0, 1];
         oracleInfos = [{ publicKey: solPerpOracle, source: OracleSource.PYTH }];
         adminClient = new AdminClient({
             connection,
-            wallet: new Wallet(signer),
+            wallet: provider.wallet,
             opts: {
                 commitment: 'confirmed',
             },
@@ -155,8 +155,11 @@ export async function setup() {
 
         console.log(`AdminClient initialized in ${Date.now() - startInitTime}ms`);
         adminInitialized = true;
-    } catch (e) {
+    }
+    catch (e) {
         console.error('Error initializing AdminClient:', e);
         throw e;
     }
 }
+
+localnetSetup()
