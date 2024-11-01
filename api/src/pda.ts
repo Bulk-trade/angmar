@@ -135,7 +135,6 @@ export async function initializeVault(
 
     transaction.sign(signer);
 
-    console.log(JSON.stringify(transaction, null, 2));
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${tx}`);
     console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
@@ -147,27 +146,7 @@ export async function initializeDrift(
     connection: Connection,
     vault_id: string,
 ) {
-
-    //const newAccount = Keypair.generate()
-
     const seedPubkey = await PublicKey.createWithSeed(signer.publicKey, 'seed', TOKEN_PROGRAM_ID);
-
-    const createSeedsIx = SystemProgram.createAccountWithSeed({
-        fromPubkey: signer.publicKey,
-        newAccountPubkey: seedPubkey,
-        basePubkey: signer.publicKey,
-        seed: 'seed',
-        lamports: 0.05 * LAMPORTS_PER_SOL,
-        space: 1024,
-        programId: TOKEN_PROGRAM_ID,
-    })
-
-    const initAccountIx = createInitializeAccountInstruction(
-        seedPubkey,
-        new PublicKey('So11111111111111111111111111111111111111112'),
-        signer.publicKey,
-        TOKEN_PROGRAM_ID,
-    )
 
     // Log the input parameters
     console.log('Received init drift parameters:', { vault_id });
@@ -225,9 +204,9 @@ export async function initializeDrift(
 
     const transaction = new Transaction();
     
-    const additionalComputeBudgetInstruction =
+    const computeBudgetInstruction =
         ComputeBudgetProgram.setComputeUnitLimit({
-            units: 4_000_000,
+            units: 4_00_000,
         });
 
     const driftIx = new TransactionInstruction({
@@ -236,7 +215,7 @@ export async function initializeDrift(
         keys,
     });
 
-    transaction.add( additionalComputeBudgetInstruction, driftIx);
+    transaction.add( computeBudgetInstruction, driftIx);
 
     transaction.feePayer = signer.publicKey!;
 
@@ -245,7 +224,6 @@ export async function initializeDrift(
 
     transaction.sign(signer);
 
-    //console.log(JSON.stringify(transaction, null, 2));
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${tx}`);
     console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);

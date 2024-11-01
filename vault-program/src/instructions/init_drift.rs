@@ -18,7 +18,7 @@ pub fn initialize_drift(
     accounts: &[AccountInfo],
     vault_id: String,
 ) -> ProgramResult {
-    msg!("Initializing Vault...");
+    msg!("Initializing Drift Vault...");
     msg!("Vault Id: {}", vault_id);
 
     let account_info_iter = &mut accounts.iter();
@@ -48,12 +48,12 @@ pub fn initialize_drift(
     msg!("user_rent: {}", rent.key);
     msg!("system_program: {}", system_program.key);
 
-    // if !initializer.is_signer {
-    //     msg!("Missing required signature");
-    //     return Err(ProgramError::MissingRequiredSignature);
-    // }
+    if !initializer.is_signer {
+        msg!("Missing required signature");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
 
-    let (vault_pda, vault_bump_seed) =
+    let (vault_pda, _) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
     if vault_pda != *vault_pda_account.key {
@@ -74,31 +74,13 @@ pub fn initialize_drift(
 
     msg!("Treasury PDA: {}", treasury_pda);
 
-    //Initialize user stats
-    // initialize_user_stats_invoke_signed(
-    //     InitializeUserStatsAccounts {
-    //         user_stats,
-    //         state,
-    //         authority,
-    //         payer,
-    //         rent,
-    //         system_program,
-    //     },
-    //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    // )?;
-
-    // let (authority_pda, signer_bump) = Pubkey::find_program_address(&[b"signer", vault_id.as_bytes().as_ref()], program_id);
-
-    // if authority_pda != *authority.key {
-    //     msg!("Invalid seeds for Authority PDA");
-    //     return Err(ProgramError::InvalidArgument);
-    // }
-
     if drift_interface::ID != *drift_program.key {
         msg!("Invalid Drift Program");
         return Err(ProgramError::InvalidArgument);
     }
 
+
+    // initializeUserStats cpi
     let user_stats_accounts = InitializeUserStatsAccounts {
         user_stats,
         state,
@@ -126,6 +108,12 @@ pub fn initialize_drift(
         ],
     )?;
 
+
+    // initializeUser cpi
+    let mut name = [0u8; 32];
+    let bytes = vault_id.as_bytes();
+    name[..bytes.len()].copy_from_slice(bytes);
+
      let user_accounts = InitializeUserAccounts {
         user,
         user_stats,
@@ -139,7 +127,7 @@ pub fn initialize_drift(
     let user_keys: InitializeUserKeys = InitializeUserKeys::from(user_accounts);
     let user_args = InitializeUserIxArgs {
         sub_account_id: 0,
-        name: [1; 32],
+        name,
     };
 
     let user_ix = initialize_user_ix(user_keys, user_args)?;
@@ -157,20 +145,6 @@ pub fn initialize_drift(
             system_program.clone(),
         ]
     )?;
-
-    //    let ix =  solana_program::instruction::Instruction{
-    //     program_id: *drift_program.key,
-    //     accounts: vec![
-    //         // AccountMeta::new(*drift_program.key, false),
-    //         AccountMeta::new(*user_stats.key, false),
-    //         AccountMeta::new(*state.key, false),
-    //         AccountMeta::new(*authority.key, true),
-    //         AccountMeta::new(*payer.key, true),
-    //         AccountMeta::new_readonly(*rent.key, false),
-    //         AccountMeta::new_readonly(*system_program.key, false)
-    //     ],
-    //     data: Vec::new()
-    //    };
 
     // invoke_signed(
     //     &ix,
@@ -199,10 +173,27 @@ pub fn initialize_drift(
     //     system_program,
     // })?;
 
-    // let mut name = [0u8; 32];
-    // let bytes = vault_id.as_bytes();
-    // name[..bytes.len()].copy_from_slice(bytes);
+    
+    //Initialize user stats
+    // initialize_user_stats_invoke_signed(
+    //     InitializeUserStatsAccounts {
+    //         user_stats,
+    //         state,
+    //         authority,
+    //         payer,
+    //         rent,
+    //         system_program,
+    //     },
+    //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
+    // )?;
 
+    // let (authority_pda, signer_bump) = Pubkey::find_program_address(&[b"signer", vault_id.as_bytes().as_ref()], program_id);
+
+    // if authority_pda != *authority.key {
+    //     msg!("Invalid seeds for Authority PDA");
+    //     return Err(ProgramError::InvalidArgument);
+    // }
+    
     // //Initialize user
     // initialize_user_invoke_signed(
     //     InitializeUserAccounts {
