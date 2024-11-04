@@ -1,4 +1,4 @@
-import { struct, u8, str, u32, f32 } from "@coral-xyz/borsh";
+import { struct, u8, str, u32, f32, u64 } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { getInitializeDriftKeys } from "./drift";
@@ -8,7 +8,7 @@ const vaultInstructionLayout = struct([
     u8("variant"),
     str("vault_id"),
     str("user_pubkey"),
-    f32("amount"),
+    u64("amount"),
     str("fund_status"),
     str("bot_status"),
 ]);

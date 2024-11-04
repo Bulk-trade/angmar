@@ -15,7 +15,7 @@ pub fn withdraw(
     accounts: &[AccountInfo],
     vault_id: String,
     user_pubkey: String,
-    mut amount: f32,
+    mut amount: u64,
     fund_status: String,
     bot_status: String,
 ) -> ProgramResult {
@@ -123,14 +123,14 @@ pub fn withdraw(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let fees = amount * 0.02;
+    const FEE_PERCENTAGE: u64 = 2;
+    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
     amount -= fees;
 
-    let fees_in_lamports = (fees * 1_000_000_000.0) as u64;
 
     msg!("Depositing Fees to Treasury Pda...");
-    **vault_pda_account.lamports.borrow_mut() -= fees_in_lamports;
-    **treasury_pda_account.lamports.borrow_mut() += fees_in_lamports;
+    **vault_pda_account.lamports.borrow_mut() -= fees;
+    **treasury_pda_account.lamports.borrow_mut() += fees;
 
     let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
         &[vault_id.as_bytes().as_ref()],
@@ -146,10 +146,8 @@ pub fn withdraw(
 
     msg!("Withdrawing from Vault Pda to {}", initializer.key);
 
-    let amount_in_lamports = (amount * 1_000_000_000.0) as u64;
-
-    **vault_pda_account.lamports.borrow_mut() -= amount_in_lamports;
-    **initializer.lamports.borrow_mut() += amount_in_lamports;
+    **vault_pda_account.lamports.borrow_mut() -= amount;
+    **initializer.lamports.borrow_mut() += amount;
 
     Ok(())
 }

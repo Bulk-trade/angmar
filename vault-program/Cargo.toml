@@ -16,3 +16,4 @@ borsh = "1.5.1"
 borsh-derive = "1.5.1"
 drift_interface = { workspace = true }
 thiserror = "1.0.65"
+spl-token = "7.0.0"

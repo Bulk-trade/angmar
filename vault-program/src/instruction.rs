@@ -8,14 +8,14 @@ pub enum VaultInstruction {
     Deposit {
         vault_id: String,
         user_pubkey: String,
-        amount: f32,
+        amount: u64,
         fund_status: String,
         bot_status: String,
     },
     Withdraw {
         vault_id: String,
         user_pubkey: String,
-        amount: f32,
+        amount: u64,
         fund_status: String,
         bot_status: String,
     },
@@ -28,7 +28,7 @@ pub enum VaultInstruction {
 struct VaultPayload {
     vault_id: String,
     user_pubkey: String,
-    amount: f32,
+    amount: u64,
     fund_status: String,
     bot_status: String,
 }

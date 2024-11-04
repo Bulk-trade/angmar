@@ -1,6 +1,7 @@
 use crate::error::VaultError;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
+use drift_interface::{deposit_ix, DepositAccounts, DepositIxArgs, DepositKeys};
 use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -14,6 +15,7 @@ use solana_program::{
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
+use spl_token::instruction;
 use std::convert::TryInto;
 
 pub fn deposit(
@@ -21,7 +23,7 @@ pub fn deposit(
     accounts: &[AccountInfo],
     vault_id: String,
     user_pubkey: String,
-    amount: f32,
+    mut amount: u64,
     fund_status: String,
     bot_status: String,
 ) -> ProgramResult {
@@ -38,6 +40,14 @@ pub fn deposit(
     let user_info_pda_account = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
     let treasury_pda_account = next_account_info(account_info_iter)?;
+    let drift_program = next_account_info(account_info_iter)?;
+    let user = next_account_info(account_info_iter)?;
+    let user_stats = next_account_info(account_info_iter)?;
+    let state = next_account_info(account_info_iter)?;
+    let authority = next_account_info(account_info_iter)?;
+    let spot_market_vault = next_account_info(account_info_iter)?;
+    let user_token_account = next_account_info(account_info_iter)?;
+    let token_program = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     if !initializer.is_signer {
@@ -173,15 +183,13 @@ pub fn deposit(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let fees = amount * 0.02;
+    const FEE_PERCENTAGE: u64 = 2;
+    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
+    amount -= fees;
 
     msg!("Depositing Fees to Treasury Pda...");
     invoke(
-        &system_instruction::transfer(
-            initializer.key,
-            treasury_pda_account.key,
-            (fees * 1_000_000_000.0) as u64,
-        ),
+        &system_instruction::transfer(initializer.key, treasury_pda_account.key, fees),
         &[
             initializer.clone(),
             treasury_pda_account.clone(),
@@ -189,10 +197,8 @@ pub fn deposit(
         ],
     )?;
 
-    let (vault_pda, _vault_bump_seed) = Pubkey::find_program_address(
-        &[vault_id.as_bytes().as_ref()],
-        program_id,
-    );
+    let (vault_pda, vault_bump_seed) =
+        Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
     msg!("Vault PDA: {}", vault_pda);
 
@@ -202,17 +208,69 @@ pub fn deposit(
     }
 
     msg!("Depositing to Vault Pda...");
+    // invoke(
+    //     &system_instruction::transfer(
+    //         initializer.key,
+    //         vault_pda_account.key,
+    //         (amount * 1_000_000_000.0) as u64,
+    //     ),
+    //     &[
+    //         initializer.clone(),
+    //         vault_pda_account.clone(),
+    //         system_program.clone(),
+    //     ],
+    // )?;
+
+    let ix = &instruction::transfer(
+        token_program.key,
+        user_token_account.key,
+        vault_pda_account.key,
+        initializer.key,
+        &[initializer.key],
+        amount,
+    )?;
+
     invoke(
-        &system_instruction::transfer(
-            initializer.key,
-            vault_pda_account.key,
-            (amount * 1_000_000_000.0) as u64,
-        ),
+        &ix,
         &[
             initializer.clone(),
             vault_pda_account.clone(),
             system_program.clone(),
         ],
+    )?;
+
+    let accounts = DepositAccounts {
+        state,
+        user,
+        user_stats,
+        authority,
+        spot_market_vault,
+        user_token_account,
+        token_program,
+    };
+
+    let keys = DepositKeys::from(accounts);
+    let args = DepositIxArgs {
+        market_index: 0,
+        amount: amount,
+        reduce_only: false,
+    };
+
+    let ix = deposit_ix(keys, args)?;
+
+    invoke_signed(
+        &ix,
+        &[
+            drift_program.clone(),
+            state.clone(),
+            user.clone(),
+            user_stats.clone(),
+            authority.clone(),
+            spot_market_vault.clone(),
+            user_token_account.clone(),
+            token_program.clone(),
+        ],
+        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]]
     )?;
 
     Ok(())
