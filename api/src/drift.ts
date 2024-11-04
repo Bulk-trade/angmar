@@ -64,7 +64,7 @@ export async function getInitializeDriftKeys(
     console.log(`Vault Signer PDA is: ${vault_signer}`);
 
     const vault = getVaultPda(programId, vaultId);
-    const [user, userStats] = getDriftUser(signer);
+    const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
    
 
@@ -90,7 +90,7 @@ export async function getInitializeDriftKeys(
             isWritable: true,
         },
         {
-            pubkey: signer,
+            pubkey: vault,
             isSigner: false,
             isWritable: true,
         },

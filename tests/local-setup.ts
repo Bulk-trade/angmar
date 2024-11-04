@@ -99,6 +99,7 @@ let oracleInfos: OracleInfo[] = [];
 // initialize adminClient first to make sure program is bootstrapped
 
 export async function localnetSetup() {
+    console.log('Setting up localnet...');
     await mockUSDCMint(provider, usdcMint)
 
     try {

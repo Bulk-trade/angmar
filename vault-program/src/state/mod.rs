@@ -32,3 +32,11 @@ impl IsInitialized for UserInfoAccountState {
         self.is_initialized
     }
 }
+
+pub struct Vault{}
+
+// impl Vault {
+//     pub fn get_vault_signer_seeds<'a>(name: &'a [u8], bump: &'a u8) -> [&'a [u8]; 3] {
+//         [b"vault".as_ref(), name, bytemuck::bytes_of(bump)]
+//     }
+// }
