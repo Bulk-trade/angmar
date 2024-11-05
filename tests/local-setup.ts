@@ -51,7 +51,7 @@ import {
     validateTotalUserShares,
 } from './testHelpers';
 import { getMint } from '@solana/spl-token';
-import { ConfirmOptions, Keypair, Signer } from '@solana/web3.js';
+import { ConfirmOptions, Keypair, LAMPORTS_PER_SOL, Signer } from '@solana/web3.js';
 import { assert, expect } from 'chai';
 import {
     VaultClient,
@@ -66,6 +66,7 @@ import {
 } from '@drift-labs/vaults-sdk';
 
 import { Metaplex } from '@metaplex-foundation/js';
+import { initializeKeypair } from '@solana-developers/helpers';
 
 // ammInvariant == k == x * y
 const mantissaSqrtScale = new BN(100_000);
@@ -95,6 +96,23 @@ const initialSolPerpPrice = 100;
 let perpMarketIndexes: number[] = [];
 let spotMarketIndexes: number[] = [];
 let oracleInfos: OracleInfo[] = [];
+
+const bulkAccountLoader = new BulkAccountLoader(connection, 'confirmed', 1);
+
+let _manager: Keypair;
+let managerClient: VaultClient;
+let managerUser: User;
+
+let vd2: Keypair;
+let vd2Client: VaultClient;
+let vd2UserUSDCAccount: PublicKey;
+let _vd2User: User;
+
+let _delegate: Keypair;
+let delegateClient: VaultClient;
+let _delegateUser: User;
+
+const usdcAmount = new BN(1_000).mul(QUOTE_PRECISION);
 
 // initialize adminClient first to make sure program is bootstrapped
 
@@ -156,11 +174,115 @@ export async function localnetSetup() {
 
         console.log(`AdminClient initialized in ${Date.now() - startInitTime}ms`);
         adminInitialized = true;
+
+        bootstrapVaults();
     }
     catch (e) {
         console.error('Error initializing AdminClient:', e);
         throw e;
     }
 }
+
+export async function bootstrapVaults() {
+    await adminClient.subscribe();
+
+    const signer = await initializeKeypair(connection, {
+        airdropAmount: LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY",
+    });
+
+    // init vault manager
+    const bootstrapManager = await bootstrapSignerClientAndUser({
+        signer,
+        payer: provider,
+        usdcMint,
+        usdcAmount,
+        driftClientConfig: {
+            accountSubscription: {
+                type: 'websocket',
+                resubTimeoutMs: 30_000,
+            },
+            opts,
+            activeSubAccountId: 0,
+            perpMarketIndexes,
+            spotMarketIndexes,
+            oracleInfos,
+        },
+    });
+    _manager = bootstrapManager.signer;
+   // managerClient = bootstrapManager.vaultClient;
+    managerUser = bootstrapManager.user;
+
+    console.log('_manager:', _manager.publicKey.toString());
+    //console.log('managerUser:', managerUser);
+
+    const delegateSigner = await initializeKeypair(connection, {
+        airdropAmount: LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY_DELEGATE",
+    });
+
+    const bootstrapDelegate = await bootstrapSignerClientAndUser({
+        signer: delegateSigner,
+        payer: provider,
+        usdcMint,
+        usdcAmount,
+        skipUser: true,
+        driftClientConfig: {
+            accountSubscription: {
+                type: 'websocket',
+                resubTimeoutMs: 30_000,
+            },
+            opts,
+            activeSubAccountId: 0,
+            perpMarketIndexes,
+            spotMarketIndexes,
+            oracleInfos,
+        },
+    });
+    _delegate = bootstrapDelegate.signer;
+    _delegateUser = bootstrapDelegate.user;
+
+    console.log('_delegate:', _delegate.publicKey.toString());
+    //console.log('_delegateUser:', _delegateUser);
+
+    const userSigner = await initializeKeypair(connection, {
+        airdropAmount: LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY_USER",
+    });
+
+
+    // the VaultDepositor for the vault
+    const bootstrapVD2 = await bootstrapSignerClientAndUser({
+        signer: userSigner,
+        payer: provider,
+        usdcMint,
+        usdcAmount,
+        skipUser: true,
+        depositCollateral: false,
+        driftClientConfig: {
+            accountSubscription: {
+                type: 'websocket',
+                resubTimeoutMs: 30_000,
+            },
+            opts,
+            activeSubAccountId: 0,
+            perpMarketIndexes,
+            spotMarketIndexes,
+            oracleInfos,
+        },
+    });
+    vd2 = bootstrapVD2.signer;
+   // vd2Client = bootstrapVD2.vaultClient;
+    vd2UserUSDCAccount = bootstrapVD2.userUSDCAccount.publicKey;
+    _vd2User = bootstrapVD2.user;
+
+    console.log('vd2:', vd2.publicKey.toString());
+    console.log('vd2UserUSDCAccount:', vd2UserUSDCAccount.toString());
+   // console.log('_vd2User:', _vd2User);
+
+    // start account loader
+    bulkAccountLoader.startPolling();
+    await bulkAccountLoader.load();
+ }
 
 localnetSetup()

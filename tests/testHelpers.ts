@@ -1074,8 +1074,8 @@ export async function initializeSolSpotMarket(
 }
 
 export async function bootstrapSignerClientAndUser(params: {
+	signer: Keypair;
 	payer: AnchorProvider;
-	programId: PublicKey;
 	usdcMint: Keypair;
 	usdcAmount: BN;
 	depositCollateral?: boolean;
@@ -1090,12 +1090,11 @@ export async function bootstrapSignerClientAndUser(params: {
 	userUSDCAccount: Keypair;
 	userWSOLAccount: PublicKey;
 	driftClient: DriftClient;
-	vaultClient: VaultClient;
 	provider: AnchorProvider;
 }> {
 	const {
+		signer,
 		payer,
-		programId,
 		usdcMint,
 		usdcAmount,
 		depositCollateral,
@@ -1104,7 +1103,6 @@ export async function bootstrapSignerClientAndUser(params: {
 	} = params;
 	const { accountSubscription, opts, activeSubAccountId } = driftClientConfig;
 
-	const signer = Keypair.generate();
 	await payer.connection.requestAirdrop(signer.publicKey, LAMPORTS_PER_SOL);
 
 	const driftClient = new DriftClient({
@@ -1122,13 +1120,13 @@ export async function bootstrapSignerClientAndUser(params: {
 		new anchor.Wallet(signer),
 		opts
 	);
-	const program = new Program(IDL, programId, provider);
-	const vaultClient = new VaultClient({
-		driftClient,
-		program,
-		cliMode: vaultClientCliMode ?? true,
-		metaplex: params.metaplex,
-	});
+	// const program = new Program(IDL, programId, provider);
+	// const vaultClient = new VaultClient({
+	// 	driftClient,
+	// 	program,
+	// 	cliMode: vaultClientCliMode ?? true,
+	// 	metaplex: params.metaplex,
+	// });
 	const userUSDCAccount = await mockUserUSDCAccount(
 		usdcMint,
 		usdcAmount,
@@ -1172,7 +1170,6 @@ export async function bootstrapSignerClientAndUser(params: {
 		userUSDCAccount,
 		userWSOLAccount,
 		driftClient,
-		vaultClient,
 		provider,
 	};
 }

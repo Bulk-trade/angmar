@@ -8,7 +8,7 @@
         "prepare": "husky install",
         "update-pyth": "cp deps/pyth.json target/idl/pyth.json",
         "update-drift": "cp deps/drift.json target/idl/drift.json",
-        "local-setup": "yarn update-drift && yarn update-pyth && yarn update-drift && yarn update-pyth && tsx tests/local-setup.ts",
+        "local-setup": "tsx tests/local-setup.ts",
         "anchor-tests": "yarn update-drift && yarn update-pyth && yarn update-drift && yarn update-pyth && yarn run ts-mocha -p ./tsconfig.json -t 1000000 --exit tests/**/*.ts",
         "anchor-tests:vaults": "yarn anchor-tests -g TestDriftVaults",
         "anchor-tests:protocol": "yarn anchor-tests -g TestProtocolVaults",
@@ -33,14 +33,16 @@
         "prettier": "^2.6.2",
         "ts-mocha": "^10.0.0",
         "ts-node": "^10.9.2",
-        "typescript": "^5.6.3",
-        "tsx": "^4.19.0"
+        "tsx": "^4.19.0",
+        "typescript": "^5.6.3"
     },
     "engines": {
         "node": ">=16"
     },
     "dependencies": {
         "@drift-labs/vaults-sdk": "^0.1.534",
-        "@metaplex-foundation/js": "^0.20.1"
+        "@metaplex-foundation/js": "^0.20.1",
+        "@solana-developers/helpers": "^2.5.6",
+        "bs58": "^6.0.0"
     }
 }
