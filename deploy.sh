@@ -4,7 +4,7 @@
 rm -rf target
 
 # Build the Solana program
-cargo build-sbf
+cargo build-sbf --tools-version v1.41
 
 # Deploy the Solana program and capture the output
 deploy_output=$(solana program deploy ./target/deploy/vault_program.so)

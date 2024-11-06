@@ -221,23 +221,23 @@ pub fn deposit(
     //     ],
     // )?;
 
-    let ix = &instruction::transfer(
-        token_program.key,
-        user_token_account.key,
-        vault_pda_account.key,
-        initializer.key,
-        &[initializer.key],
-        amount,
-    )?;
+    // let ix = &instruction::transfer(
+    //     token_program.key,
+    //     user_token_account.key,
+    //     vault_pda_account.key,
+    //     initializer.key,
+    //     &[initializer.key],
+    //     amount,
+    // )?;
 
-    invoke(
-        &ix,
-        &[
-            initializer.clone(),
-            vault_pda_account.clone(),
-            system_program.clone(),
-        ],
-    )?;
+    // invoke(
+    //     &ix,
+    //     &[
+    //         initializer.clone(),
+    //         vault_pda_account.clone(),
+    //         system_program.clone(),
+    //     ],
+    // )?;
 
     let accounts = DepositAccounts {
         state,
