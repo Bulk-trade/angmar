@@ -67,6 +67,10 @@ import {
 
 import { Metaplex } from '@metaplex-foundation/js';
 import { initializeKeypair } from '@solana-developers/helpers';
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // ammInvariant == k == x * y
 const mantissaSqrtScale = new BN(100_000);
@@ -118,6 +122,7 @@ const usdcAmount = new BN(1_000).mul(QUOTE_PRECISION);
 
 export async function localnetSetup() {
     console.log('Setting up localnet...');
+    console.log(`USDC Mint: ${usdcMint.publicKey.toString()}`);
     await mockUSDCMint(provider, usdcMint)
 
     try {
@@ -186,10 +191,7 @@ export async function localnetSetup() {
 export async function bootstrapVaults() {
     await adminClient.subscribe();
 
-    const signer = await initializeKeypair(connection, {
-        airdropAmount: LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY",
-    });
+    const signer = Keypair.fromSecretKey(bs58.decode('3JqKi48PaCNY3jyBq45YCSqSaiKRj4Jtbbcbdu89nRCx6Q44wpyoMEgMbLQ3yeTHPefnDu3WFpcgPLYgJVVSV5xi')); 
 
     // init vault manager
     const bootstrapManager = await bootstrapSignerClientAndUser({
@@ -216,10 +218,7 @@ export async function bootstrapVaults() {
     console.log('_manager:', _manager.publicKey.toString());
     //console.log('managerUser:', managerUser);
 
-    const delegateSigner = await initializeKeypair(connection, {
-        airdropAmount: LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY_DELEGATE",
-    });
+    const delegateSigner = Keypair.fromSecretKey(bs58.decode('58ddNgbzxZbdcZ3zda4xMeqCdFCe78Aobz7q6xBystyLg3NfPJ9vqjx734oVCHWrmNYoPW9EcVRLP8at3o6AfTHi')); 
 
     const bootstrapDelegate = await bootstrapSignerClientAndUser({
         signer: delegateSigner,
@@ -245,11 +244,7 @@ export async function bootstrapVaults() {
     console.log('_delegate:', _delegate.publicKey.toString());
     //console.log('_delegateUser:', _delegateUser);
 
-    const userSigner = await initializeKeypair(connection, {
-        airdropAmount: LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY_USER",
-    });
-
+    const userSigner = Keypair.fromSecretKey(bs58.decode('45L6e2ciALnN2SsSa8DYR7SDbiPgYUawAPozHN2JJzERcZR8EkRqzkoHGebPTm1ZevVgysuFgZP7FRTGr6MNaVtf'));
 
     // the VaultDepositor for the vault
     const bootstrapVD2 = await bootstrapSignerClientAndUser({
@@ -283,6 +278,8 @@ export async function bootstrapVaults() {
     // start account loader
     bulkAccountLoader.startPolling();
     await bulkAccountLoader.load();
+
+    console.log(`Spot Market: ${adminClient.getSpotMarketAccount(0).vault.toString()}`);
  }
 
 localnetSetup()

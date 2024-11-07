@@ -16,11 +16,11 @@ curl -X POST http://localhost:4001/initDrift \
 echo ""
 
 # Deposit into the vault
-# echo "Depositing into vault..."
-# curl -X POST http://localhost:4001/deposit \
-#      -H "Content-Type: application/json" \
-#      -d '{"vault_id": "bulk_vault", "user_pubkey": "sunit", "amount": 1.0}'
-# echo ""
+echo "Depositing into vault..."
+curl -X POST http://localhost:4001/deposit \
+     -H "Content-Type: application/json" \
+     -d '{"vault_id": "bulk_vault", "user_pubkey": "sunit", "amount": 100}'
+echo ""
 
 # # Withdraw from the vault
 # echo "Withdrawing from vault..."

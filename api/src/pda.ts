@@ -1,8 +1,10 @@
 import { struct, u8, str, u32, f32, u64 } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
-import { getInitializeDriftKeys } from "./drift";
+import { getDriftDepositKeys, getInitializeDriftKeys } from "./drift";
 import {createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction} from "@solana/spl-token"
+import BN from "bn.js";
+import { USDC_MINT } from "./index-local";
 
 const vaultInstructionLayout = struct([
     u8("variant"),
@@ -230,12 +232,13 @@ export async function initializeDrift(
 }
 
 export async function deposit(
+    connection: Connection,
     signer: Keypair,
     programId: PublicKey,
-    connection: Connection,
     vault_id: string,
     user_pubkey: string,
     amount: number,
+    spotMarket: PublicKey,
 ) {
 
     // Log the input parameters
@@ -249,12 +252,16 @@ export async function deposit(
     let buffer = Buffer.alloc(1000);
     const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
     const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
+
+    // Assuming `amount` is a number
+    const amountBN = new BN(amount);
+    
     vaultInstructionLayout.encode(
         {
             variant: 1,
             vault_id: vault,
             user_pubkey: pubKey,
-            amount: amount,
+            amount: amountBN,
             fund_status: FundStatus.Deposited,
             bot_status: BotStatus.Init,
         },
@@ -268,13 +275,9 @@ export async function deposit(
         programId
     );
 
-
     console.log("User PDA is:", user_info_pda.toBase58());
 
-    const [vault_pda] = await PublicKey.findProgramAddressSync(
-        [Buffer.from(vault_id)],
-        programId
-    );
+    const vault_pda = getVaultPda(programId, vault_id);
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
@@ -285,38 +288,45 @@ export async function deposit(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
+    const usdcAccount = await connection.getTokenAccountsByOwner(signer.publicKey, {
+        mint: USDC_MINT
+    });
+
+    const driftKeys = await getDriftDepositKeys(connection, signer, programId, usdcAccount.value[0].pubkey, vault_id, spotMarket);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: signer.publicKey,
+            isSigner: true,
+            isWritable: false,
+        },
+        {
+            pubkey: user_info_pda,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vault_pda,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
     const transaction = new Transaction();
 
     const instruction = new TransactionInstruction({
         programId: programId,
         data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: user_info_pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: vault_pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: treasury,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
+        keys
     });
 
     transaction.add(instruction);
@@ -479,5 +489,11 @@ export async function updateUserInfo(
     console.log(`https://solscan.io//tx/${tx}`);
 }
 
+export function getVaultPda(programId: PublicKey, vaultId: String) {
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from(vaultId)],
+        programId
+    );
 
-
+    return pda;
+}

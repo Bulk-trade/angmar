@@ -1,22 +1,14 @@
-import { DRIFT_PROGRAM_ID, getDriftStateAccountPublicKey, getUserAccountPublicKeySync, getUserStatsAccountPublicKey, sigNum } from "@drift-labs/sdk";
+import { DRIFT_PROGRAM_ID, getDriftStateAccountPublicKey, getSpotMarketPublicKey, getUserAccountPublicKeySync, getUserStatsAccountPublicKey } from "@drift-labs/sdk";
+import { getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
     PublicKey,
     SystemProgram,
     AccountMeta,
+    Connection,
 } from "@solana/web3.js";
-// import {
-//     DRIFT_PROGRAM_ID,
-//     getDriftStateAccountPublicKey,
-//     getUserAccountPublicKeySync,
-//     getUserStatsAccountPublicKey,
-//     MarketType,
-//     OrderParams,
-//     DriftClient as _DriftClient,
-//     initialize as _initialize,
-//     PositionDirection,
-//     BulkAccountLoader,
-//     decodeUser,
-// } from "@drift-labs/sdk";
+import { SPOT_MARKET_VAULT, USDC_MINT } from "./index-local";
+import { Keypair } from "@solana/web3.js";
+import { getVaultPda } from "./pda";
 
 // import { BaseClient, ApiTxOptions } from "./base";
 const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
@@ -112,44 +104,79 @@ export async function getInitializeDriftKeys(
     ]
 }
 
-export async function getDriftKeys(
-    spotMarketIndex: number,
-    signer: PublicKey,
-    programId: PublicKey,
-    vaultId: String,
-) {
+export async function getDriftDepositKeys(
+    connection: Connection, signer: Keypair, programId: PublicKey, usdcAccount: PublicKey, vaultId: String, spotMarket: PublicKey,
+): Promise<AccountMeta[]> {
 
     const vault = getVaultPda(programId, vaultId);
+    const [user, userStats] = getDriftUser(vault);
+    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 
-    const driftState = await this.driftClient.getStatePublicKey();
-    const spotMarket = this.driftClient.getSpotMarketAccount(
-        spotMarketIndex
-    );
-    if (!spotMarket) {
-        throw new Error(
-            `Spot market ${spotMarketIndex} not found on driftClient`
-        );
-    }
-
-    const userStatsKey = getUserStatsAccountPublicKey(
-        this.driftClient.program.programId,
-        vault
-    );
-    const userKey = getUserAccountPublicKeySync(
-        this.driftClient.program.programId,
-        vault
-    );
-
-    const accounts = {
-        driftSpotMarket: spotMarket.pubkey,
-        driftSpotMarketMint: spotMarket.mint,
-        driftUserStats: userStatsKey,
-        driftUser: userKey,
-        driftState,
+    const vaultTokenAccount = await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        USDC_MINT,
         vault,
-    };
+        true
+    );
 
-    return accounts;
+    return [
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userStats,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: state,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: usdcAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultTokenAccount.address,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: USDC_MINT,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: TOKEN_PROGRAM_ID,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
 }
 
 function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
@@ -159,11 +186,3 @@ function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
     ];
 }
 
-function getVaultPda(programId: PublicKey, vaultId: String) {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(vaultId)],
-        programId
-    );
-
-    return pda;
-}

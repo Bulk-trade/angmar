@@ -11,9 +11,9 @@ crate-type = ["cdylib", "lib"]
 name = "vault_program"
 
 [dependencies]
-solana-program = "1.18"
+solana-program = "1.18.26"
 borsh = "1.5.1"
 borsh-derive = "1.5.1"
 drift_interface = { workspace = true }
 thiserror = "1.0.65"
-spl-token = { version = "5", features = ["no-entrypoint"] }
+spl-token = { version = "4.0.3", features = ["no-entrypoint"] }

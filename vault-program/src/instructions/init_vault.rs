@@ -20,40 +20,21 @@ pub fn initialize_vault(
 
     let account_info_iter = &mut accounts.iter();
 
-    // let initializer = next_account_info(account_info_iter)?;
-    // let vault_pda_account = next_account_info(account_info_iter)?;
-    // let treasury_pda_account = next_account_info(account_info_iter)?;
-    // let user = next_account_info(account_info_iter)?;
-    // let user_stats = next_account_info(account_info_iter)?;
-    // let state = next_account_info(account_info_iter)?;
-    // let authority = next_account_info(account_info_iter)?;
-    // let payer = next_account_info(account_info_iter)?;
-    // let user_rent = next_account_info(account_info_iter)?;
-    // let system_program = next_account_info(account_info_iter)?;
-
     let initializer = next_account_info(account_info_iter)?;
     let vault_pda_account = next_account_info(account_info_iter)?;
     let treasury_pda_account = next_account_info(account_info_iter)?;
-    //let signer_pda_account = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     // Print each variable
     msg!("initializer: {}", initializer.key);
     msg!("vault_pda_account: {}", vault_pda_account.key);
     msg!("treasury_pda_account: {}", treasury_pda_account.key);
-    // msg!("signer_pda_account: {}", treasury_pda_account.key);
-    // msg!("user: {}", user.key);
-    // msg!("user_stats: {}", user_stats.key);
-    // msg!("state: {}", state.key);
-    // msg!("authority: {}", authority.key);
-    // msg!("payer: {}", payer.key);
-    // msg!("user_rent: {}", user_rent.key);
     msg!("system_program: {}", system_program.key);
 
-    // if !initializer.is_signer {
-    //     msg!("Missing required signature");
-    //     return Err(ProgramError::MissingRequiredSignature);
-    // }
+    if !initializer.is_signer {
+        msg!("Missing required signature");
+        return Err(ProgramError::MissingRequiredSignature);
+    }
 
     let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
@@ -65,7 +46,7 @@ pub fn initialize_vault(
 
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(0);
-    let required_lamports = rent_lamports + (0.1 * LAMPORTS_PER_SOL as f64) as u64;
+    let required_lamports = rent_lamports + (0.03 * LAMPORTS_PER_SOL as f64) as u64;
 
     invoke_signed(
         &system_instruction::create_account(
@@ -113,40 +94,6 @@ pub fn initialize_vault(
             &[treasury_bump_seed],
         ]],
     )?;
-
-    msg!("Treasury PDA created: {}", treasury_pda);
-
-
-    // // Create Treasury PDA
-    // let (signer_pda, signer_bump_seed) =
-    //     Pubkey::find_program_address(&[b"signer", vault_id.as_bytes().as_ref()], program_id);
-
-    // if signer_pda != *signer_pda_account.key {
-    //     msg!("Invalid seeds for Signer PDA");
-    //     return Err(ProgramError::InvalidArgument);
-    // }
-
-    // invoke_signed(
-    //     &system_instruction::create_account(
-    //         initializer.key,
-    //         signer_pda_account.key,
-    //         rent_lamports,
-    //         0,
-    //         program_id,
-    //     ),
-    //     &[
-    //         initializer.clone(),
-    //         signer_pda_account.clone(),
-    //         system_program.clone(),
-    //     ],
-    //     &[&[
-    //         b"signer",
-    //         vault_id.as_bytes().as_ref(),
-    //         &[signer_bump_seed],
-    //     ]],
-    // )?;
-
-    // msg!("Signer PDA created: {}", treasury_pda);
 
     Ok(())
 }

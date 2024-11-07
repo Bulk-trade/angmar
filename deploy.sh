@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Remove the target directory
-rm -rf target
+#rm -rf target
 
 # Build the Solana program
 cargo build-sbf --tools-version v1.41

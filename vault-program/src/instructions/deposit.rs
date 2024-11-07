@@ -47,6 +47,8 @@ pub fn deposit(
     let authority = next_account_info(account_info_iter)?;
     let spot_market_vault = next_account_info(account_info_iter)?;
     let user_token_account = next_account_info(account_info_iter)?;
+    let vault_token_account = next_account_info(account_info_iter)?;
+    let usdc_mint = next_account_info(account_info_iter)?;
     let token_program = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
@@ -207,36 +209,43 @@ pub fn deposit(
         return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("Depositing to Vault Pda...");
-    // invoke(
-    //     &system_instruction::transfer(
-    //         initializer.key,
-    //         vault_pda_account.key,
-    //         (amount * 1_000_000_000.0) as u64,
-    //     ),
-    //     &[
-    //         initializer.clone(),
-    //         vault_pda_account.clone(),
-    //         system_program.clone(),
-    //     ],
-    // )?;
+    msg!("Transfering to Vault Pda...");
+    invoke(
+        &instruction::transfer(
+            &token_program.key,
+            &user_token_account.key,
+            &vault_token_account.key,
+            &initializer.key,
+            &[initializer.key],
+            amount,
+        )?,
+        &[
+            usdc_mint.clone(),
+            user_token_account.clone(),
+            vault_token_account.clone(),
+            initializer.clone(),
+            token_program.clone(),
+        ],
+    )?;
 
-    // let ix = &instruction::transfer(
-    //     token_program.key,
-    //     user_token_account.key,
-    //     vault_pda_account.key,
-    //     initializer.key,
-    //     &[initializer.key],
-    //     amount,
-    // )?;
-
-    // invoke(
-    //     &ix,
+    // msg!("Transfering to user Pda...");
+    // invoke_signed(
+    //     &instruction::transfer(
+    //         &token_program.key,
+    //         &vault_token_account.key,
+    //         &user_token_account.key,
+    //         &vault_pda_account.key,
+    //         &[vault_pda_account.key],
+    //         amount,
+    //     )?,
     //     &[
-    //         initializer.clone(),
+    //         usdc_mint.clone(),
+    //         vault_token_account.clone(),
+    //         user_token_account.clone(),
     //         vault_pda_account.clone(),
-    //         system_program.clone(),
+    //         token_program.clone(),
     //     ],
+    //     &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]]
     // )?;
 
     let accounts = DepositAccounts {
@@ -245,14 +254,14 @@ pub fn deposit(
         user_stats,
         authority: vault_pda_account,
         spot_market_vault,
-        user_token_account,
+        user_token_account: vault_token_account,
         token_program,
     };
 
     let keys = DepositKeys::from(accounts);
     let args = DepositIxArgs {
         market_index: 0,
-        amount: amount,
+        amount,
         reduce_only: false,
     };
 
@@ -267,7 +276,7 @@ pub fn deposit(
             user_stats.clone(),
             vault_pda_account.clone(),
             spot_market_vault.clone(),
-            user_token_account.clone(),
+            vault_token_account.clone(),
             token_program.clone(),
         ],
         &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]]
