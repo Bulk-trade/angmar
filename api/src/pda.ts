@@ -2,9 +2,14 @@ import { struct, u8, str, u32, f32, u64 } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { getDriftDepositKeys, getInitializeDriftKeys } from "./drift";
-import {createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction} from "@solana/spl-token"
+import { createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import BN from "bn.js";
-import { USDC_MINT } from "./index-local";
+import { USDC_MINT } from "./index";
+import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
+import { VersionedTransaction } from "@solana/web3.js";
+import { TransactionMessage } from "@solana/web3.js";
+import { getSignature } from "./utils/get-signature";
+import { handleTransactionResponse } from "./utils/handle-txn";
 
 const vaultInstructionLayout = struct([
     u8("variant"),
@@ -59,9 +64,9 @@ export async function readPdaInfo(
 }
 
 export async function initializeVault(
+    connection: Connection,
     signer: Keypair,
     programId: PublicKey,
-    connection: Connection,
     vault_id: string,
 ) {
     // Log the input parameters
@@ -94,7 +99,7 @@ export async function initializeVault(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-   
+
     const keys: AccountMeta[] = [
         {
             pubkey: signer.publicKey,
@@ -120,26 +125,48 @@ export async function initializeVault(
 
     console.log(`Keys Length: ${keys.length}`);
 
-    const transaction = new Transaction();
-
     const Ix = new TransactionInstruction({
         programId: programId,
         data: buffer,
         keys,
     });
 
-    transaction.add(Ix)
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
 
-    transaction.feePayer = signer.publicKey!;
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [Ix],
+        }).compileToV0Message()
+    );
 
-    const latestBlockhash = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = latestBlockhash.blockhash;
+    transaction.sign([signer]);
 
-    transaction.sign(signer);
+    // Get the transaction signature
+    const signature = getSignature(transaction);
 
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${tx}`);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    const transactionResult = handleTransactionResponse(transactionResponse, signature);
+
+    // Return if the transaction failed or not confirmed
+    if (transactionResult === 0) {
+        return 'failed';
+    }
+
+    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+    console.log(`https://solscan.io//tx/${signature}`);
+    //console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
 }
 
 export async function initializeDrift(
@@ -148,7 +175,6 @@ export async function initializeDrift(
     connection: Connection,
     vault_id: string,
 ) {
-    const seedPubkey = await PublicKey.createWithSeed(signer.publicKey, 'seed', TOKEN_PROGRAM_ID);
 
     // Log the input parameters
     console.log('Received init drift parameters:', { vault_id });
@@ -166,7 +192,7 @@ export async function initializeDrift(
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
 
-    const [vault, bump] = PublicKey.findProgramAddressSync(
+    const [vault, _] = PublicKey.findProgramAddressSync(
         [Buffer.from(vault_id)],
         programId
     );
@@ -204,8 +230,6 @@ export async function initializeDrift(
 
     console.log(`Keys Length: ${keys.length}`);
 
-    const transaction = new Transaction();
-    
     const computeBudgetInstruction =
         ComputeBudgetProgram.setComputeUnitLimit({
             units: 4_00_000,
@@ -217,18 +241,41 @@ export async function initializeDrift(
         keys,
     });
 
-    transaction.add( computeBudgetInstruction, driftIx);
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
 
-    transaction.feePayer = signer.publicKey!;
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, driftIx],
+        }).compileToV0Message()
+    );
 
-    const latestBlockhash = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = latestBlockhash.blockhash;
+    transaction.sign([signer]);
 
-    transaction.sign(signer);
+    // Get the transaction signature
+    const signature = getSignature(transaction);
 
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${tx}`);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    const transactionResult = handleTransactionResponse(transactionResponse, signature);
+
+    // Return if the transaction failed or not confirmed
+    if (transactionResult === 0) {
+        return 'failed';
+    }
+
+    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+    console.log(`https://solscan.io//tx/${signature}`);
 }
 
 export async function deposit(
@@ -240,7 +287,6 @@ export async function deposit(
     amount: number,
     spotMarket: PublicKey,
 ) {
-
     // Log the input parameters
     console.log('Received deposit parameters:', { vault_id, user_pubkey, amount });
 
@@ -255,7 +301,7 @@ export async function deposit(
 
     // Assuming `amount` is a number
     const amountBN = new BN(amount);
-    
+
     vaultInstructionLayout.encode(
         {
             variant: 1,
@@ -321,18 +367,47 @@ export async function deposit(
 
     console.log(`Keys Length: ${keys.length}`);
 
-    const transaction = new Transaction();
-
     const instruction = new TransactionInstruction({
         programId: programId,
         data: buffer,
         keys
     });
 
-    transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${tx}`);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([signer]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    const transactionResult = handleTransactionResponse(transactionResponse, signature);
+
+    // Return if the transaction failed or not confirmed
+    if (transactionResult === 0) {
+        return 'failed';
+    }
+
+    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+    console.log(`https://solscan.io//tx/${signature}`);
 }
 
 export async function withdraw(

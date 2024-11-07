@@ -11,6 +11,9 @@ import {
 } from "@solana-developers/helpers";
 import cors from 'cors';
 import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
+import { Keypair } from '@solana/web3.js';
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
+import { getTokenBalance } from './utils/get-balance';
 
 
 dotenv.config();
@@ -25,20 +28,17 @@ const tritonConnection = new Connection(process.env.TRITON_PRO_RPC || '', "confi
 
 export const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 export const SPOT_MARKET_VAULT = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
-const BULK_PROGRAM_ID = new PublicKey('');
+const BULK_PROGRAM_ID = new PublicKey('5NDdLPr4hLbL2S5BQtGFqFYRXAuq3x72CLKncEmFMbDQ');
 
 app.post('/initVault', async (req, res) => {
     try {
         const { vault_id } = req.body;
 
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
+        const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || ''));
 
-        console.log(`Signer: ${signer.publicKey}`)
+        console.log(`Signer: ${signer.publicKey}`);
 
-        await initializeVault(signer, BULK_PROGRAM_ID, connection, vault_id);
+        await initializeVault(connection, signer, BULK_PROGRAM_ID, vault_id);
         res.status(200).send('Initialized Vault successfully');
     } catch (error) {
         console.error(error);
@@ -50,12 +50,9 @@ app.post('/initDrift', async (req, res) => {
     try {
         const { vault_id } = req.body;
 
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
+        const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || ''));
 
-        console.log(`Signer: ${signer.publicKey}`)
+        console.log(`Signer: ${signer.publicKey}`);
 
         await initializeDrift(signer, BULK_PROGRAM_ID, connection, vault_id);
         res.status(200).send('Initialized Vault successfully');
@@ -68,18 +65,17 @@ app.post('/initDrift', async (req, res) => {
 app.post('/deposit', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: 2 * LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY_USER",
-        });
+        const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY_USER || ''));
 
-        console.log("before deposit")
-        console.log(await connection.getBalance(signer.publicKey))
+        console.log("before deposit");
+        const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());
+        console.log(usdcBalance);
 
         await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT);
 
         console.log("after deposit")
-        console.log(await connection.getBalance(signer.publicKey))
+        const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());
+        console.log(newUsdcBalance);
         res.status(200).send('Deposited successfully');
     } catch (error) {
         console.error('Error during deposit:', error);
@@ -90,10 +86,7 @@ app.post('/deposit', async (req, res) => {
 app.post('/withdraw', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: 2 * LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY_USER",
-        });
+        const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY_USER || ''));
 
         console.log("before withdraw")
         console.log(await connection.getBalance(signer.publicKey))
@@ -112,10 +105,7 @@ app.post('/withdraw', async (req, res) => {
 app.post('/updateUserInfo', async (req, res) => {
     try {
         const { user_pubkey, amount, fund_status, bot_status } = req.body;
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
+        const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || ''));
 
         await updateUserInfo(signer, BULK_PROGRAM_ID, connection, user_pubkey, amount);
 
@@ -134,19 +124,15 @@ app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`BULK Vault Program Id: ${BULK_PROGRAM_ID.toString()}`);
 
-    const signer = await initializeKeypair(connection, {
-        airdropAmount: 2 * LAMPORTS_PER_SOL,
-        envVariableName: "PRIVATE_KEY_USER",
-    });
+    console.log('Admin SIGNER', Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY || '')).publicKey.toString());
+    console.log('User SIGNER', Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY_USER || '')).publicKey.toString());
+    console.log('Delegate SIGNER', Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY_DELEGATE || '')).publicKey.toString());
 
-    console.log('SIGNER', signer.publicKey.toString());
+    // const usdcAccount = await connection.getTokenAccountsByOwner(signer.publicKey, {
+    //     mint: USDC_MINT
+    // });
 
-    const usdcAccount = await connection.getTokenAccountsByOwner(signer.publicKey, {
-        mint: USDC_MINT
-    });
-
-    console.log('USDC account', usdcAccount.value[0].pubkey.toString());
-
+    // console.log('USDC account', usdcAccount.value[0].pubkey.toString());
 
 });
 

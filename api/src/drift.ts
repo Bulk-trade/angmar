@@ -6,9 +6,9 @@ import {
     AccountMeta,
     Connection,
 } from "@solana/web3.js";
-import { SPOT_MARKET_VAULT, USDC_MINT } from "./index-local";
 import { Keypair } from "@solana/web3.js";
 import { getVaultPda } from "./pda";
+import { USDC_MINT } from "./index";
 
 // import { BaseClient, ApiTxOptions } from "./base";
 const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
