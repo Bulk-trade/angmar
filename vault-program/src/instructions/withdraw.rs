@@ -3,7 +3,7 @@ use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh1::try_from_slice_unchecked,
+    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program_error::ProgramError,

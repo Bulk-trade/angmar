@@ -279,7 +279,8 @@ export async function bootstrapVaults() {
     bulkAccountLoader.startPolling();
     await bulkAccountLoader.load();
 
-    console.log(`Spot Market: ${adminClient.getSpotMarketAccount(0).vault.toString()}`);
+    console.log(`Spot Market 0: ${adminClient.getSpotMarketAccount(0).vault.toString()}`);
+    console.log(`Spot Market 1: ${adminClient.getSpotMarketAccount(1).vault.toString()}`);
  }
 
 localnetSetup()

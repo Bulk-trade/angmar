@@ -3,8 +3,12 @@
 # Remove the target directory
 #rm -rf target
 
+# Update deps if not updated
+# https://solana.stackexchange.com/questions/8800/error-use-of-unstable-library-feature-build-hasher-simple-hash-one
+#cargo update -p ahash@0.8.11 --precise 0.8.6
+
 # Build the Solana program
-cargo build-sbf --tools-version v1.41
+cargo build-sbf
 
 # Deploy the Solana program and capture the output
 deploy_output=$(solana program deploy ./target/deploy/vault_program.so)

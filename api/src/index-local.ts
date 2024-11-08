@@ -22,7 +22,8 @@ app.use(express.json());
 app.use(cors());
 
 const USDC_MINT_LOCAL = Keypair.fromSecretKey(bs58.decode(process.env.LOCAL_USDC || '')).publicKey;
-const SPOT_MARKET_VAULT = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
+const SPOT_MARKET_VAULT_0 = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
+const SPOT_MARKET_VAULT_1 = new PublicKey('DfYCNezifxAEsQbAJ1b3j6PX3JVBe8fu11KBhxsbw5d2');
 const connection = new Connection("http://localhost:8899", "confirmed");
 const BULK_PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || '');
 
@@ -75,7 +76,7 @@ app.post('/deposit', async (req, res) => {
         console.log("before deposit")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT, USDC_MINT_LOCAL);
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT_1, USDC_MINT_LOCAL);
 
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))

@@ -316,7 +316,7 @@ export async function deposit(
 
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
-    const [user_info_pda] = await PublicKey.findProgramAddressSync(
+    const [user_info_pda] = PublicKey.findProgramAddressSync(
         [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
         programId
     );

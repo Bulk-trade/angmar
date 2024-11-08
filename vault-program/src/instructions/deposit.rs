@@ -5,12 +5,11 @@ use drift_interface::{deposit_ix, DepositAccounts, DepositIxArgs, DepositKeys};
 use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh1::try_from_slice_unchecked,
+    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke_signed,
     program_error::ProgramError,
-    program_pack::IsInitialized,
     pubkey::Pubkey,
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
@@ -148,7 +147,7 @@ pub fn deposit(
             msg!("borrowed new account data");
 
             msg!("checking if user account is already initialized");
-            if data.is_initialized() {
+            if data.is_initialized {
                 msg!("Account already initialized");
                 return Err(ProgramError::AccountAlreadyInitialized);
             }
@@ -260,7 +259,7 @@ pub fn deposit(
 
     let keys = DepositKeys::from(accounts);
     let args = DepositIxArgs {
-        market_index: 0,
+        market_index: 1,
         amount,
         reduce_only: false,
     };
