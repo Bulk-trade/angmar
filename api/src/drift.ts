@@ -8,7 +8,6 @@ import {
 } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
 import { getVaultPda } from "./pda";
-import { USDC_MINT } from "./index";
 
 // import { BaseClient, ApiTxOptions } from "./base";
 const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
@@ -105,7 +104,7 @@ export async function getInitializeDriftKeys(
 }
 
 export async function getDriftDepositKeys(
-    connection: Connection, signer: Keypair, programId: PublicKey, usdcAccount: PublicKey, vaultId: String, spotMarket: PublicKey,
+    connection: Connection, signer: Keypair, programId: PublicKey, usdcAccount: PublicKey, vaultId: String, spotMarket: PublicKey, USDC_MINT: PublicKey
 ): Promise<AccountMeta[]> {
 
     const vault = getVaultPda(programId, vaultId);

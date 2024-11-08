@@ -4,7 +4,6 @@ import { BotStatus, FundStatus } from "./util";
 import { getDriftDepositKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import BN from "bn.js";
-import { USDC_MINT } from "./index";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
 import { VersionedTransaction } from "@solana/web3.js";
 import { TransactionMessage } from "@solana/web3.js";
@@ -166,7 +165,7 @@ export async function initializeVault(
 
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${signature}`);
-    //console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function initializeDrift(
@@ -286,6 +285,7 @@ export async function deposit(
     user_pubkey: string,
     amount: number,
     spotMarket: PublicKey,
+    USDC_MINT: PublicKey,
 ) {
     // Log the input parameters
     console.log('Received deposit parameters:', { vault_id, user_pubkey, amount });
@@ -338,7 +338,7 @@ export async function deposit(
         mint: USDC_MINT
     });
 
-    const driftKeys = await getDriftDepositKeys(connection, signer, programId, usdcAccount.value[0].pubkey, vault_id, spotMarket);
+    const driftKeys = await getDriftDepositKeys(connection, signer, programId, usdcAccount.value[0].pubkey, vault_id, spotMarket, USDC_MINT);
 
     const keys: AccountMeta[] = [
         {

@@ -26,8 +26,8 @@ app.use(cors());
 const connection = new Connection(process.env.RPC_URL || '', "confirmed");
 const tritonConnection = new Connection(process.env.TRITON_PRO_RPC || '', "confirmed");
 
-export const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-export const SPOT_MARKET_VAULT = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
+const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+const SPOT_MARKET_VAULT = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
 const BULK_PROGRAM_ID = new PublicKey('5NDdLPr4hLbL2S5BQtGFqFYRXAuq3x72CLKncEmFMbDQ');
 
 app.post('/initVault', async (req, res) => {
@@ -71,7 +71,7 @@ app.post('/deposit', async (req, res) => {
         const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());
         console.log(usdcBalance);
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT);
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT, USDC_MINT);
 
         console.log("after deposit")
         const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());

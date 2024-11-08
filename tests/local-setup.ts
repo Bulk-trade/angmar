@@ -89,7 +89,7 @@ anchor.setProvider(provider);
 const connection = provider.connection;
 
 const program = anchor.workspace.DriftVaults as Program<DriftVaults>;
-const usdcMint = Keypair.generate();
+const usdcMint = Keypair.fromSecretKey(bs58.decode(process.env.LOCAL_USDC || ''));;
 let solPerpOracle: PublicKey;
 const metaplex = Metaplex.make(connection);
 
