@@ -66,7 +66,7 @@ To execute the test scripts, use:
 ├── deps/                     # Dependencies
 ├── idl/                      # Interface Definition Language files for smart contracts
 ├── scripts/                  # Various scripts
-├── vault-program/            # Rust code for the vault program
+├── program/            # Rust code for the vault program
 ├── setup.sh                  # Setup script
 ├── cleanup.sh                # Cleanup script
 ├── deploy.sh                 # Deployment script

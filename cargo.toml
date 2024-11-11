@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "vault-program",
+    "program",
     "deps/drift/drift_interface",
     ]
 resolver = "2"

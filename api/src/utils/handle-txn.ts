@@ -12,9 +12,11 @@ export function handleTransactionResponse(transactionResponse: VersionedTransact
     if (transactionResponse.meta?.err) {
         console.error(`Transaction Failed: ${JSON.stringify(transactionResponse.meta?.err)}`);
         console.error(`https://solscan.io/tx/${signature}`);
+        console.error(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
         throw new Error(`Transaction Failed: ${JSON.stringify(transactionResponse.meta?.err)}`);
     }
 
     console.log(`https://solscan.io/tx/${signature}`);
+    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
     return 1;
 }
