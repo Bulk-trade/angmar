@@ -14,7 +14,6 @@ name = "vault_program"
 solana-program = "<=1.16"
 spl-token = { version = "3.0.0" , features = [ "no-entrypoint" ]}
 borsh = "^0.10"
-borsh-derive = "^0.10"
 drift_interface = { workspace = true }
 thiserror = "1.0.65"
 

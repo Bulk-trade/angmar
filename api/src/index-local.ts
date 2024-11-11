@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './pda';
+import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './vault';
 import { Keypair } from '@solana/web3.js';
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
 
@@ -38,7 +38,7 @@ app.post('/initVault', async (req, res) => {
 
         console.log(`Signer: ${signer.publicKey}`)
 
-        await initializeVault(connection, signer, BULK_PROGRAM_ID,  vault_id);
+        await initializeVault(connection, signer, BULK_PROGRAM_ID, vault_id);
         res.status(200).send('Initialized Vault successfully');
     } catch (error) {
         console.error(error);
@@ -76,7 +76,7 @@ app.post('/deposit', async (req, res) => {
         console.log("before deposit")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT_1, USDC_MINT_LOCAL);
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT_0, USDC_MINT_LOCAL);
 
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))

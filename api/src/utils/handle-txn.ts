@@ -4,14 +4,15 @@ export function handleTransactionResponse(transactionResponse: VersionedTransact
     // If no response is received, log an error and return
     if (!transactionResponse) {
         console.error("Transaction not confirmed");
-        return 0;
+        throw new Error("Transaction not confirmed");
+        
     }
 
     // If the transaction fails, log the error
     if (transactionResponse.meta?.err) {
         console.error(`Transaction Failed: ${JSON.stringify(transactionResponse.meta?.err)}`);
         console.error(`https://solscan.io/tx/${signature}`);
-        return 0;
+        throw new Error(`Transaction Failed: ${JSON.stringify(transactionResponse.meta?.err)}`);
     }
 
     console.log(`https://solscan.io/tx/${signature}`);

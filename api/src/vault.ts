@@ -156,12 +156,7 @@ export async function initializeVault(
     });
 
     // Handle the transaction response
-    const transactionResult = handleTransactionResponse(transactionResponse, signature);
-
-    // Return if the transaction failed or not confirmed
-    if (transactionResult === 0) {
-        return 'failed';
-    }
+    handleTransactionResponse(transactionResponse, signature);
 
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${signature}`);
@@ -266,15 +261,11 @@ export async function initializeDrift(
     });
 
     // Handle the transaction response
-    const transactionResult = handleTransactionResponse(transactionResponse, signature);
-
-    // Return if the transaction failed or not confirmed
-    if (transactionResult === 0) {
-        return 'failed';
-    }
+    handleTransactionResponse(transactionResponse, signature);
 
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${signature}`);
+    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function deposit(
@@ -399,15 +390,11 @@ export async function deposit(
     });
 
     // Handle the transaction response
-    const transactionResult = handleTransactionResponse(transactionResponse, signature);
-
-    // Return if the transaction failed or not confirmed
-    if (transactionResult === 0) {
-        return 'failed';
-    }
+    handleTransactionResponse(transactionResponse, signature);
 
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
     console.log(`https://solscan.io//tx/${signature}`);
+    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function withdraw(

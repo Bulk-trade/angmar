@@ -1475,7 +1475,6 @@ name = "vault-program"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
- "borsh-derive 0.10.4",
  "drift_interface",
  "solana-program",
  "spl-token",

@@ -25,7 +25,7 @@ export async function versionedTransactionSenderAndConfirmationWaiter({
     const startTime = performance.now(); // Start timing before the function call
 
     const txid = await connection.sendRawTransaction(
-        serializedTransaction
+        serializedTransaction, SEND_OPTIONS
     );
 
 

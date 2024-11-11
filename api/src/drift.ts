@@ -7,7 +7,7 @@ import {
     Connection,
 } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
-import { getVaultPda } from "./pda";
+import { getVaultPda } from "./vault";
 
 // import { BaseClient, ApiTxOptions } from "./base";
 const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
@@ -57,7 +57,7 @@ export async function getInitializeDriftKeys(
     const vault = getVaultPda(programId, vaultId);
     const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
-   
+
 
     return [
         {

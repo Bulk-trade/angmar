@@ -43,7 +43,7 @@ pub fn deposit(
     let user = next_account_info(account_info_iter)?;
     let user_stats = next_account_info(account_info_iter)?;
     let state = next_account_info(account_info_iter)?;
-    let authority = next_account_info(account_info_iter)?;
+    let _authority = next_account_info(account_info_iter)?;
     let spot_market_vault = next_account_info(account_info_iter)?;
     let user_token_account = next_account_info(account_info_iter)?;
     let vault_token_account = next_account_info(account_info_iter)?;
@@ -259,7 +259,7 @@ pub fn deposit(
 
     let keys = DepositKeys::from(accounts);
     let args = DepositIxArgs {
-        market_index: 1,
+        market_index: 0,
         amount,
         reduce_only: false,
     };
