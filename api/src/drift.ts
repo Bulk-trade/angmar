@@ -10,7 +10,7 @@ import { Keypair } from "@solana/web3.js";
 import { getVaultPda } from "./vault";
 
 // import { BaseClient, ApiTxOptions } from "./base";
-const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
+export const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
 const DRIFT_VAULT = new PublicKey(
     "JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw"
 );
@@ -104,20 +104,28 @@ export async function getInitializeDriftKeys(
 }
 
 export async function getDriftDepositKeys(
-    connection: Connection, signer: Keypair, programId: PublicKey, usdcAccount: PublicKey, vaultId: String, spotMarket: PublicKey, USDC_MINT: PublicKey
+    connection: Connection,
+    signer: Keypair,
+    programId: PublicKey,
+    userTokenAccount: PublicKey,
+    vaultId: String,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey
 ): Promise<AccountMeta[]> {
 
     const vault = getVaultPda(programId, vaultId);
     const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 
-    const vaultTokenAccount = await getOrCreateAssociatedTokenAccount(
+    const vaultTokenAccount = (await getOrCreateAssociatedTokenAccount(
         connection,
         signer,
-        USDC_MINT,
+        mint,
         vault,
         true
-    );
+    )).address;
 
     return [
         {
@@ -141,7 +149,12 @@ export async function getDriftDepositKeys(
             isWritable: true,
         },
         {
-            pubkey: vault,
+            pubkey: spotMarketVault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: oracle,
             isSigner: false,
             isWritable: true,
         },
@@ -151,17 +164,17 @@ export async function getDriftDepositKeys(
             isWritable: true,
         },
         {
-            pubkey: usdcAccount,
+            pubkey: userTokenAccount,
             isSigner: false,
             isWritable: true,
         },
         {
-            pubkey: vaultTokenAccount.address,
+            pubkey: vaultTokenAccount,
             isSigner: false,
             isWritable: true,
         },
         {
-            pubkey: USDC_MINT,
+            pubkey: mint,
             isSigner: false,
             isWritable: true,
         },
@@ -178,7 +191,7 @@ export async function getDriftDepositKeys(
     ]
 }
 
-function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
+export function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
     return [
         getUserAccountPublicKeySync(DRIFT_PROGRAM, vault),
         getUserStatsAccountPublicKey(DRIFT_PROGRAM, vault),

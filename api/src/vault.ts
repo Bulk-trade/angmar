@@ -1,7 +1,7 @@
-import { struct, u8, str, u32, f32, u64 } from "@coral-xyz/borsh";
+import { struct, u8, str, u32, f32, u64, u16, bool } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
-import { getDriftDepositKeys, getInitializeDriftKeys } from "./drift";
+import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import BN from "bn.js";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
@@ -9,6 +9,12 @@ import { VersionedTransaction } from "@solana/web3.js";
 import { TransactionMessage } from "@solana/web3.js";
 import { getSignature } from "./utils/get-signature";
 import { handleTransactionResponse } from "./utils/handle-txn";
+import { getDriftStateAccountPublicKey } from "@drift-labs/sdk";
+
+const computeBudgetInstruction =
+    ComputeBudgetProgram.setComputeUnitLimit({
+        units: 4_00_000,
+    });
 
 const vaultInstructionLayout = struct([
     u8("variant"),
@@ -17,6 +23,13 @@ const vaultInstructionLayout = struct([
     u64("amount"),
     str("fund_status"),
     str("bot_status"),
+    u16("market_index"),
+]);
+
+const driftDepositLayout = struct([
+    u16("marketIndex"),
+    u64("amount"),
+    bool("reduceOnly"),
 ]);
 
 export async function readPdaInfo(
@@ -224,11 +237,6 @@ export async function initializeDrift(
 
     console.log(`Keys Length: ${keys.length}`);
 
-    const computeBudgetInstruction =
-        ComputeBudgetProgram.setComputeUnitLimit({
-            units: 4_00_000,
-        });
-
     const driftIx = new TransactionInstruction({
         programId: programId,
         data: buffer,
@@ -275,8 +283,11 @@ export async function deposit(
     vault_id: string,
     user_pubkey: string,
     amount: number,
+    marketIndex: number,
     spotMarket: PublicKey,
-    USDC_MINT: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey,
 ) {
     // Log the input parameters
     console.log('Received deposit parameters:', { vault_id, user_pubkey, amount });
@@ -301,6 +312,7 @@ export async function deposit(
             amount: amountBN,
             fund_status: FundStatus.Deposited,
             bot_status: BotStatus.Init,
+            market_index: marketIndex,
         },
         buffer
     );
@@ -325,17 +337,19 @@ export async function deposit(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    const usdcAccount = await connection.getTokenAccountsByOwner(signer.publicKey, {
-        mint: USDC_MINT
-    });
+    const userTokenAccount = (await connection.getTokenAccountsByOwner(signer.publicKey, {
+        mint: mint
+    })).value[0].pubkey;
 
-    const driftKeys = await getDriftDepositKeys(connection, signer, programId, usdcAccount.value[0].pubkey, vault_id, spotMarket, USDC_MINT);
+    console.log("Token account:", userTokenAccount.toString());
+
+    const driftKeys = await getDriftDepositKeys(connection, signer, programId, userTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
 
     const keys: AccountMeta[] = [
         {
             pubkey: signer.publicKey,
             isSigner: true,
-            isWritable: false,
+            isWritable: true,
         },
         {
             pubkey: user_info_pda,
@@ -364,6 +378,39 @@ export async function deposit(
         keys
     });
 
+    // const dataBuffer = Buffer.alloc(24);
+    // dataBuffer.write("f223c68952e1f2b60100849b28000000000000", "hex")
+
+    // const data = new Uint8Array(dataBuffer);
+    // console.log(data);
+
+    // const [user, userStats] = getDriftUser(signer.publicKey);
+    // const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+
+    // const ix = new TransactionInstruction({
+    //     programId: programId,
+    //     data: dataBuffer,
+    //     keys: [
+    //         {
+    //             pubkey: state,
+    //             isSigner: false,
+    //             isWritable: true,
+    //         },
+    //         {
+    //             pubkey: user,
+    //             isSigner: false,
+    //             isWritable: true,
+    //         },
+    //         {
+    //             pubkey: userStats,
+    //             isSigner: false,
+    //             isWritable: true,
+    //         },
+            
+
+    //     ],
+    // });
+
     // Get the latest blockhash for the transaction
     const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
 
@@ -371,7 +418,7 @@ export async function deposit(
         new TransactionMessage({
             payerKey: signer.publicKey,
             recentBlockhash: blockhashResult.blockhash,
-            instructions: [instruction],
+            instructions: [computeBudgetInstruction, instruction],
         }).compileToV0Message()
     );
 
@@ -393,8 +440,6 @@ export async function deposit(
     handleTransactionResponse(transactionResponse, signature);
 
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${signature}`);
-    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function withdraw(

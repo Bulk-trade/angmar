@@ -2,71 +2,29 @@ import * as anchor from '@coral-xyz/anchor';
 import { Program } from '@coral-xyz/anchor';
 import {
     AdminClient,
-    BASE_PRECISION,
     BN,
     BulkAccountLoader,
-    ZERO,
-    PRICE_PRECISION,
     User,
     OracleSource,
     PublicKey,
-    getLimitOrderParams,
-    PostOnlyParams,
-    PositionDirection,
-    getUserAccountPublicKey,
-    UserAccount,
     QUOTE_PRECISION,
-    getOrderParams,
-    MarketType,
     PEG_PRECISION,
-    calculatePositionPNL,
-    getInsuranceFundStakeAccountPublicKey,
-    InsuranceFundStake,
-    DriftClient,
     OracleInfo,
-    TEN,
-    PERCENTAGE_PRECISION,
-    TWO,
-    getTokenAmount,
-    getUserStatsAccountPublicKey,
-    DRIFT_PROGRAM_ID,
-    OrderType,
-    isVariant,
 } from '@drift-labs/sdk';
 import {
     bootstrapSignerClientAndUser,
-    calculateAllTokenizedVaultPdas,
-    createUserWithUSDCAccount,
-    doWashTrading,
-    getVaultDepositorValue,
     initializeQuoteSpotMarket,
     initializeSolSpotMarket,
-    initializeSolSpotMarketMaker,
     isDriftInitialized,
     mockOracle,
     mockUSDCMint,
-    printTxLogs,
-    setFeedPrice,
-    sleep,
-    validateTotalUserShares,
 } from './testHelpers';
-import { getMint } from '@solana/spl-token';
-import { ConfirmOptions, Keypair, LAMPORTS_PER_SOL, Signer } from '@solana/web3.js';
-import { assert, expect } from 'chai';
+import { ConfirmOptions, Keypair } from '@solana/web3.js';
 import {
     VaultClient,
-    getTokenizedVaultMintAddressSync,
-    getVaultAddressSync,
-    getVaultDepositorAddressSync,
-    encodeName,
     DriftVaults,
-    VaultProtocolParams,
-    getVaultProtocolAddressSync,
-    WithdrawUnit,
 } from '@drift-labs/vaults-sdk';
-
 import { Metaplex } from '@metaplex-foundation/js';
-import { initializeKeypair } from '@solana-developers/helpers';
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
 import dotenv from "dotenv";
 
@@ -280,7 +238,15 @@ export async function bootstrapVaults() {
     await bulkAccountLoader.load();
 
     console.log(`Spot Market 0: ${adminClient.getSpotMarketAccount(0).vault.toString()}`);
+    console.log(`Spot Market 0 Mint: ${adminClient.getSpotMarketAccount(0).mint.toString()}`);
     console.log(`Spot Market 1: ${adminClient.getSpotMarketAccount(1).vault.toString()}`);
+    console.log(`Spot Market 1 Mint: ${adminClient.getSpotMarketAccount(1).mint.toString()}`);
+
+    const remainingAccounts = adminClient.getRemainingAccounts({
+        userAccounts: [],
+        writableSpotMarketIndexes: [0],
+    });
+    console.log('Remaining Accounts:', JSON.stringify(remainingAccounts, null, 2));
  }
 
 localnetSetup()

@@ -10,9 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeDrift, initializeVault, readPdaInfo, updateUserInfo, withdraw } from './vault';
-import { Keypair } from '@solana/web3.js';
-import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
+import { deposit as deposit, getVaultPda, initializeDrift, initializeVault, updateUserInfo, withdraw } from './vault';
 
 dotenv.config();
 
@@ -21,11 +19,21 @@ app.use(express.json());
 // Enable CORS
 app.use(cors());
 
-const USDC_MINT_LOCAL = Keypair.fromSecretKey(bs58.decode(process.env.LOCAL_USDC || '')).publicKey;
-const SPOT_MARKET_VAULT_0 = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
-const SPOT_MARKET_VAULT_1 = new PublicKey('DfYCNezifxAEsQbAJ1b3j6PX3JVBe8fu11KBhxsbw5d2');
 const connection = new Connection("http://localhost:8899", "confirmed");
 const BULK_PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || '');
+
+const USDC_MINT_LOCAL = new PublicKey('Fgfq9JbxkvAXcuqW2BSHgRZHY9DeEc8vQzieL3QaBy8G');
+const WSOL = new PublicKey('So11111111111111111111111111111111111111112');
+const SPOT_MARKET_VAULT_USDC = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
+const SPOT_MARKET_VAULT_WSOL = new PublicKey('DfYCNezifxAEsQbAJ1b3j6PX3JVBe8fu11KBhxsbw5d2');
+
+const SPOT_MARKET_USDC = new PublicKey('6gMq3mRCKf8aP3ttTyYhuijVZ2LGi14oDsBbkgubfLB3');
+const SPOT_MARKET_WSOL = new PublicKey('3x85u7SWkmmr7YQGYhtjARgxwegTLJgkSLRprfXod6rh');
+
+const ORACLE_USDC = new PublicKey('En8hkHLkRe9d9DraYmBTrus518BvmVH448YcvmrFM6Ce');
+const ORACLE_WSOL = new PublicKey('BAtFj4kQttZRVep3UZS2aZRDixkGYgWsbqTBVDbnSsPF');
+
+
 
 app.post('/initVault', async (req, res) => {
     try {
@@ -65,7 +73,7 @@ app.post('/initDrift', async (req, res) => {
     }
 });
 
-app.post('/deposit', async (req, res) => {
+app.post('/deposit-usdc', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
@@ -76,8 +84,30 @@ app.post('/deposit', async (req, res) => {
         console.log("before deposit")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, SPOT_MARKET_VAULT_0, USDC_MINT_LOCAL);
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
+       
+        console.log("after deposit")
+        console.log(await connection.getBalance(signer.publicKey))
+        res.status(200).send('Deposited successfully');
+    } catch (error) {
+        console.error('Error during deposit:', error);
+        res.status(500).send('Error during deposit');
+    }
+});
 
+app.post('/deposit-wsol', async (req, res) => {
+    try {
+        const { vault_id, user_pubkey, amount } = req.body;
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: 2 * LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY_USER",
+        });
+
+        console.log("before deposit")
+        console.log(await connection.getBalance(signer.publicKey))
+
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 1, SPOT_MARKET_WSOL, SPOT_MARKET_VAULT_WSOL, ORACLE_WSOL, WSOL);
+    
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))
         res.status(200).send('Deposited successfully');
@@ -145,9 +175,17 @@ app.listen(PORT, async () => {
         mint: USDC_MINT_LOCAL
     });
 
-    console.log('USDC account', usdcAccount.value[0].pubkey.toString());
+    console.log('USER USDC account', usdcAccount.value[0].pubkey.toString());
 
+    // if (BULK_PROGRAM_ID) {
+    //     const vault = getVaultPda(BULK_PROGRAM_ID, 'bulk_vault');
+    //     const vaultTokenAccount = (await connection.getTokenAccountsByOwner(vault, {
+    //         mint: USDC_MINT_LOCAL
+    //     })).value[0].pubkey;
 
-
+    //     console.log('Vault USDC account', vaultTokenAccount.toString());
+    // } else {
+    //     console.error('BULK_PROGRAM_ID is not set');
+    // }
 });
 

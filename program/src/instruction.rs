@@ -11,6 +11,7 @@ pub enum VaultInstruction {
         amount: u64,
         fund_status: String,
         bot_status: String,
+        market_index: u16,
     },
     Withdraw {
         vault_id: String,
@@ -31,6 +32,7 @@ struct VaultPayload {
     amount: u64,
     fund_status: String,
     bot_status: String,
+    market_index: u16,
 }
 
 impl VaultInstruction {
@@ -49,6 +51,7 @@ impl VaultInstruction {
                 amount: payload.amount,
                 fund_status: payload.fund_status,
                 bot_status: payload.bot_status,
+                market_index: payload.market_index,
             },
             2 => Self::Withdraw {
                 vault_id: payload.vault_id,
