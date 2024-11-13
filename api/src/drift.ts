@@ -108,6 +108,7 @@ export async function getDriftDepositKeys(
     signer: Keypair,
     programId: PublicKey,
     userTokenAccount: PublicKey,
+    treasuryTokenAccount: PublicKey,
     vaultId: String,
     spotMarket: PublicKey,
     spotMarketVault: PublicKey,
@@ -170,6 +171,11 @@ export async function getDriftDepositKeys(
         },
         {
             pubkey: vaultTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasuryTokenAccount,
             isSigner: false,
             isWritable: true,
         },

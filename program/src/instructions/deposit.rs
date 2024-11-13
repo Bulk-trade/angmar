@@ -1,7 +1,7 @@
 use crate::error::VaultError;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
-use drift_interface::{ DepositIxArgs, DepositIxData};
+use drift_interface::{DepositIxArgs, DepositIxData};
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{
@@ -53,6 +53,7 @@ pub fn deposit(
 
     let user_token_account = next_account_info(account_info_iter)?;
     let vault_token_account = next_account_info(account_info_iter)?;
+    let treasury_token_account = next_account_info(account_info_iter)?;
     let mint = next_account_info(account_info_iter)?;
 
     let token_program = next_account_info(account_info_iter)?;
@@ -79,11 +80,12 @@ pub fn deposit(
     // Third batch - Token accounts
     msg!("12. user_token_account: {}", user_token_account.key);
     msg!("13. vault_token_account: {}", vault_token_account.key);
-    msg!("14. mint: {}", mint.key);
+    msg!("14. treasury_token_account: {}", treasury_token_account.key);
+    msg!("15. mint: {}", mint.key);
 
     // Fourth batch - System accounts
-    msg!("15. token_program: {}", token_program.key);
-    msg!("16. system_program: {}", system_program.key);
+    msg!("16. token_program: {}", token_program.key);
+    msg!("17. system_program: {}", system_program.key);
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -222,11 +224,20 @@ pub fn deposit(
 
     msg!("Depositing Fees to Treasury Pda...");
     invoke(
-        &system_instruction::transfer(initializer.key, treasury.key, fees),
+        &instruction::transfer(
+            &token_program.key,
+            &user_token_account.key,
+            &treasury_token_account.key,
+            &initializer.key,
+            &[initializer.key],
+            fees,
+        )?,
         &[
+            mint.clone(),
+            user_token_account.clone(),
+            treasury_token_account.clone(),
             initializer.clone(),
-            treasury.clone(),
-            system_program.clone(),
+            token_program.clone(),
         ],
     )?;
 

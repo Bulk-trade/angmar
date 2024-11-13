@@ -2,7 +2,7 @@ import { struct, u8, str, u32, f32, u64, u16, bool } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getInitializeDriftKeys } from "./drift";
-import { createInitializeAccountInstruction, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
+import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import BN from "bn.js";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
 import { VersionedTransaction } from "@solana/web3.js";
@@ -341,9 +341,19 @@ export async function deposit(
         mint: mint
     })).value[0].pubkey;
 
-    console.log("Token account:", userTokenAccount.toString());
+    console.log("User Token account:", userTokenAccount.toString());
 
-    const driftKeys = await getDriftDepositKeys(connection, signer, programId, userTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
+    const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        mint,
+        treasury,
+        true
+    )).address;
+
+    console.log("Treasury Token account:", userTokenAccount.toString());
+
+    const driftKeys = await getDriftDepositKeys(connection, signer, programId, userTokenAccount, treasuryTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
 
     const keys: AccountMeta[] = [
         {
