@@ -21,14 +21,14 @@ pub fn initialize_vault(
     let account_info_iter = &mut accounts.iter();
 
     let initializer = next_account_info(account_info_iter)?;
-    let vault_pda_account = next_account_info(account_info_iter)?;
-    let treasury_pda_account = next_account_info(account_info_iter)?;
+    let vault = next_account_info(account_info_iter)?;
+    let treasury = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
     // Print each variable
     msg!("initializer: {}", initializer.key);
-    msg!("vault_pda_account: {}", vault_pda_account.key);
-    msg!("treasury_pda_account: {}", treasury_pda_account.key);
+    msg!("vault: {}", vault.key);
+    msg!("treasury: {}", treasury.key);
     msg!("system_program: {}", system_program.key);
 
     if !initializer.is_signer {
@@ -39,7 +39,7 @@ pub fn initialize_vault(
     let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
-    if vault_pda != *vault_pda_account.key {
+    if vault_pda != *vault.key {
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -51,26 +51,26 @@ pub fn initialize_vault(
     invoke_signed(
         &system_instruction::create_account(
             initializer.key,
-            vault_pda_account.key,
+            vault.key,
             required_lamports,
             0,
             program_id,
         ),
         &[
             initializer.clone(),
-            vault_pda_account.clone(),
+            vault.clone(),
             system_program.clone(),
         ],
         &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
     )?;
 
-    msg!("Vault PDA created: {}", vault_pda);
+    msg!("Vault created: {}", vault_pda);
 
     // Create Treasury PDA
     let (treasury_pda, treasury_bump_seed) =
         Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
 
-    if treasury_pda != *treasury_pda_account.key {
+    if treasury_pda != *treasury.key {
         msg!("Invalid seeds for Treasury PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -78,14 +78,14 @@ pub fn initialize_vault(
     invoke_signed(
         &system_instruction::create_account(
             initializer.key,
-            treasury_pda_account.key,
+            treasury.key,
             rent_lamports,
             0,
             program_id,
         ),
         &[
             initializer.clone(),
-            treasury_pda_account.clone(),
+            treasury.clone(),
             system_program.clone(),
         ],
         &[&[
@@ -94,6 +94,8 @@ pub fn initialize_vault(
             &[treasury_bump_seed],
         ]],
     )?;
+
+    msg!("Treasury created: {}", treasury_pda);
 
     Ok(())
 }

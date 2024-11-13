@@ -30,5 +30,8 @@ program = "./deps/metaplex/metaplex.so"
 address = "PwDiXFxQsGra4sFFTT8r1QWRMd4vfumiWC1jfWNfdYT"
 filename = "./deps/metaplex/PwDiXFxQsGra4sFFTT8r1QWRMd4vfumiWC1jfWNfdYT.json"
 
+[test]
+startup_wait = 10000
+
 [scripts]
 test = "npm run local-setup"

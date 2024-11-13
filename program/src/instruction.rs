@@ -19,6 +19,7 @@ pub enum VaultInstruction {
         amount: u64,
         fund_status: String,
         bot_status: String,
+        market_index: u16,
     },
     InitializeDrift {
         vault_id: String,
@@ -59,6 +60,7 @@ impl VaultInstruction {
                 amount: payload.amount,
                 fund_status: payload.fund_status,
                 bot_status: payload.bot_status,
+                market_index: payload.market_index,
             },
             3 => Self::InitializeDrift {
                 vault_id: payload.vault_id,

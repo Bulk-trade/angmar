@@ -61,7 +61,7 @@ export async function getInitializeDriftKeys(
 
     return [
         {
-            pubkey: new PublicKey('dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH'),
+            pubkey: DRIFT_PROGRAM,
             isSigner: false,
             isWritable: false,
         },
@@ -77,16 +77,6 @@ export async function getInitializeDriftKeys(
         },
         {
             pubkey: state,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: vault,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: signer,
             isSigner: false,
             isWritable: true,
         },
@@ -161,6 +151,105 @@ export async function getDriftDepositKeys(
         },
         {
             pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasuryTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: mint,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: TOKEN_PROGRAM_ID,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
+}
+
+export async function getDriftWithdrawKeys(
+    connection: Connection,
+    signer: Keypair,
+    programId: PublicKey,
+    userTokenAccount: PublicKey,
+    treasuryTokenAccount: PublicKey,
+    vaultId: String,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey
+): Promise<AccountMeta[]> {
+
+    const vault = getVaultPda(programId, vaultId);
+    const [user, userStats] = getDriftUser(vault);
+    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+
+    const vaultTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        mint,
+        vault,
+        true
+    )).address;
+
+    return [
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userStats,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: state,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarketVault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: oracle,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: new PublicKey('JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw'),
             isSigner: false,
             isWritable: true,
         },

@@ -114,6 +114,10 @@ pub fn deposit(
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(account_len);
 
+    const FEE_PERCENTAGE: u64 = 2;
+    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
+    amount -= fees;
+
     msg!("checking if user account is initialized");
 
     msg!("unpacking state account");
@@ -218,10 +222,6 @@ pub fn deposit(
         return Err(ProgramError::InvalidArgument);
     }
 
-    const FEE_PERCENTAGE: u64 = 2;
-    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
-    amount -= fees;
-
     msg!("Depositing Fees to Treasury Pda...");
     invoke(
         &instruction::transfer(
@@ -270,6 +270,8 @@ pub fn deposit(
         ],
     )?;
 
+    msg!("Transfering from Vault Pda to Drift Vault...");
+    // Drift Deposit Cpi
     let accounts_meta = vec![
         AccountMeta {
             pubkey: *drift_state.key,

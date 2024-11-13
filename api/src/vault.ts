@@ -1,7 +1,7 @@
 import { struct, u8, str, u32, f32, u64, u16, bool } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
-import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getInitializeDriftKeys } from "./drift";
+import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import BN from "bn.js";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
@@ -170,10 +170,6 @@ export async function initializeVault(
 
     // Handle the transaction response
     handleTransactionResponse(transactionResponse, signature);
-
-    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${signature}`);
-    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function initializeDrift(
@@ -270,10 +266,6 @@ export async function initializeDrift(
 
     // Handle the transaction response
     handleTransactionResponse(transactionResponse, signature);
-
-    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${signature}`);
-    console.log(`https://explorer.solana.com/tx/${signature}?cluster=custom`);
 }
 
 export async function deposit(
@@ -290,7 +282,7 @@ export async function deposit(
     mint: PublicKey,
 ) {
     // Log the input parameters
-    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount });
+    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket, spotMarketVault, oracle, mint });
 
     // Validate input parameters
     if (!vault_id || !user_pubkey) {
@@ -388,39 +380,6 @@ export async function deposit(
         keys
     });
 
-    // const dataBuffer = Buffer.alloc(24);
-    // dataBuffer.write("f223c68952e1f2b60100849b28000000000000", "hex")
-
-    // const data = new Uint8Array(dataBuffer);
-    // console.log(data);
-
-    // const [user, userStats] = getDriftUser(signer.publicKey);
-    // const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
-
-    // const ix = new TransactionInstruction({
-    //     programId: programId,
-    //     data: dataBuffer,
-    //     keys: [
-    //         {
-    //             pubkey: state,
-    //             isSigner: false,
-    //             isWritable: true,
-    //         },
-    //         {
-    //             pubkey: user,
-    //             isSigner: false,
-    //             isWritable: true,
-    //         },
-    //         {
-    //             pubkey: userStats,
-    //             isSigner: false,
-    //             isWritable: true,
-    //         },
-            
-
-    //     ],
-    // });
-
     // Get the latest blockhash for the transaction
     const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
 
@@ -453,16 +412,21 @@ export async function deposit(
 }
 
 export async function withdraw(
+    connection: Connection,
     signer: Keypair,
     programId: PublicKey,
-    connection: Connection,
     vault_id: string,
     user_pubkey: string,
     amount: number,
+    marketIndex: number,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey,
 ) {
 
     // Log the input parameters
-    console.log('Received withdraw parameters:', { vault_id, user_pubkey, amount });
+    console.log('Received withdraw parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket, spotMarketVault, oracle, mint });
 
     // Validate input parameters
     if (!vault_id || !user_pubkey) {
@@ -472,32 +436,32 @@ export async function withdraw(
     let buffer = Buffer.alloc(1000);
     const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
     const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
+
+    // Assuming `amount` is a number
+    const amountBN = new BN(amount);
     vaultInstructionLayout.encode(
         {
             variant: 2,
             vault_id: vault,
             user_pubkey: pubKey,
-            amount: amount,
+            amount: amountBN,
             fund_status: FundStatus.Withdrawn,
             bot_status: BotStatus.Init,
+            market_index: marketIndex,
         },
         buffer
     );
 
     buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
 
-    const [user_info_pda] = await PublicKey.findProgramAddressSync(
+    const [user_info_pda] = PublicKey.findProgramAddressSync(
         [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
         programId
     );
 
-
     console.log("User PDA is:", user_info_pda.toBase58());
 
-    const [vault_pda] = await PublicKey.findProgramAddressSync(
-        [Buffer.from(vault_id)],
-        programId
-    );
+    const vault_pda = getVaultPda(programId, vault_id);
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
@@ -508,44 +472,84 @@ export async function withdraw(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    const transaction = new Transaction();
+    const userTokenAccount = (await connection.getTokenAccountsByOwner(signer.publicKey, {
+        mint: mint
+    })).value[0].pubkey;
+
+    console.log("User Token account:", userTokenAccount.toString());
+
+    const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        mint,
+        treasury,
+        true
+    )).address;
+
+    console.log("Treasury Token account:", userTokenAccount.toString());
+
+    const driftKeys = await getDriftWithdrawKeys(connection, signer, programId, userTokenAccount, treasuryTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: signer.publicKey,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: user_info_pda,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vault_pda,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
 
     const instruction = new TransactionInstruction({
         programId: programId,
         data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: user_info_pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: vault_pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: treasury,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
+        keys
     });
 
-    transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-    console.log(`https://solscan.io//tx/${tx}`);
-    console.log(`https://explorer.solana.com/tx/${tx}?cluster=custom`);
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([signer]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
 }
 
 export async function updateUserInfo(

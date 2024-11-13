@@ -117,7 +117,7 @@ app.post('/deposit-wsol', async (req, res) => {
     }
 });
 
-app.post('/withdraw', async (req, res) => {
+app.post('/withdraw-usdc', async (req, res) => {
     try {
         const { vault_id, user_pubkey, amount } = req.body;
         const signer = await initializeKeypair(connection, {
@@ -128,7 +128,7 @@ app.post('/withdraw', async (req, res) => {
         console.log("before withdraw")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await withdraw(signer, BULK_PROGRAM_ID, connection, vault_id, user_pubkey, amount);
+        await withdraw(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
 
         console.log("after withdraw")
         console.log(await connection.getBalance(signer.publicKey))

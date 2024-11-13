@@ -23,29 +23,31 @@ pub fn initialize_drift(
     let account_info_iter = &mut accounts.iter();
 
     let initializer = next_account_info(account_info_iter)?;
-    let vault_pda_account = next_account_info(account_info_iter)?;
-    let treasury_pda_account = next_account_info(account_info_iter)?;
+    let vault = next_account_info(account_info_iter)?;
+    let treasury = next_account_info(account_info_iter)?;
+
     let drift_program = next_account_info(account_info_iter)?;
-    let user = next_account_info(account_info_iter)?;
-    let user_stats = next_account_info(account_info_iter)?;
-    let state = next_account_info(account_info_iter)?;
-    let authority = next_account_info(account_info_iter)?;
-    let payer = next_account_info(account_info_iter)?;
+    let drift_user = next_account_info(account_info_iter)?;
+    let drift_user_stats = next_account_info(account_info_iter)?;
+    let drift_state = next_account_info(account_info_iter)?;
+
     let rent = next_account_info(account_info_iter)?;
     let system_program = next_account_info(account_info_iter)?;
 
-    // Print each variable
-    msg!("initializer: {}", initializer.key);
-    msg!("vault_pda_account: {}", vault_pda_account.key);
-    msg!("treasury_pda_account: {}", treasury_pda_account.key);
-    msg!("drift_program: {}", drift_program.key);
-    msg!("user: {}", user.key);
-    msg!("user_stats: {}", user_stats.key);
-    msg!("state: {}", state.key);
-    msg!("authority: {}", authority.key);
-    msg!("payer: {}", payer.key);
-    msg!("user_rent: {}", rent.key);
-    msg!("system_program: {}", system_program.key);
+    // First batch - Main accounts
+    msg!("1. initializer: {}", initializer.key);
+    msg!("2. vault: {}", vault.key);
+    msg!("3. treasury: {}", treasury.key);
+
+    // Second batch - Drift accounts
+    msg!("4. drift_program: {}", drift_program.key);
+    msg!("5. drift_user: {}", drift_user.key);
+    msg!("6. drift_user_stats: {}", drift_user_stats.key);
+    msg!("7. drift_state: {}", drift_state.key);
+
+    // Third batch - System accounts
+    msg!("8. rent: {}", rent.key);
+    msg!("9. system_program: {}", system_program.key);
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -55,7 +57,7 @@ pub fn initialize_drift(
     let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
-    if vault_pda != *vault_pda_account.key {
+    if vault_pda != *vault.key {
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -66,7 +68,7 @@ pub fn initialize_drift(
     let (treasury_pda, _) =
         Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
 
-    if treasury_pda != *treasury_pda_account.key {
+    if treasury_pda != *treasury.key {
         msg!("Invalid seeds for Treasury PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -80,10 +82,10 @@ pub fn initialize_drift(
 
     // initializeUserStats cpi
     let user_stats_accounts = InitializeUserStatsAccounts {
-        user_stats,
-        state,
-        authority,
-        payer,
+        user_stats: drift_user_stats,
+        state: drift_state,
+        authority: vault,
+        payer: initializer,
         rent,
         system_program,
     };
@@ -97,10 +99,10 @@ pub fn initialize_drift(
         &user_stats_ix,
         &[
             drift_program.clone(),
-            user_stats.clone(),
-            state.clone(),
-            authority.clone(),
-            payer.clone(),
+            drift_user_stats.clone(),
+            drift_state.clone(),
+            vault.clone(),
+            initializer.clone(),
             rent.clone(),
             system_program.clone(),
         ],
@@ -113,11 +115,11 @@ pub fn initialize_drift(
     name[..bytes.len()].copy_from_slice(bytes);
 
     let user_accounts = InitializeUserAccounts {
-        user,
-        user_stats,
-        state,
-        authority,
-        payer,
+        user: drift_user,
+        user_stats: drift_user_stats,
+        state: drift_state,
+        authority: vault,
+        payer: initializer,
         rent,
         system_program,
     };
@@ -134,11 +136,11 @@ pub fn initialize_drift(
         &user_ix,
         &[
             drift_program.clone(),
-            user.clone(),
-            user_stats.clone(),
-            state.clone(),
-            authority.clone(),
-            payer.clone(),
+            drift_user.clone(),
+            drift_user_stats.clone(),
+            drift_state.clone(),
+            vault.clone(),
+            initializer.clone(),
             rent.clone(),
             system_program.clone(),
         ],

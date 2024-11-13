@@ -11,7 +11,7 @@ pub fn process_instruction(
     match instruction {
         VaultInstruction::InitializeVault { vault_id } => {
             initialize_vault(program_id, accounts, vault_id)
-        }
+        },
         VaultInstruction::Deposit {
             vault_id,
             user_pubkey,
@@ -35,6 +35,7 @@ pub fn process_instruction(
             amount,
             fund_status,
             bot_status,
+            market_index,
         } => withdraw(
             program_id,
             accounts,
@@ -43,6 +44,7 @@ pub fn process_instruction(
             amount,
             fund_status,
             bot_status,
+            market_index,
         ),
         VaultInstruction::InitializeDrift { vault_id } => {
             initialize_drift(program_id, accounts, vault_id)
