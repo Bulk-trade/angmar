@@ -5,6 +5,9 @@ pub enum VaultInstruction {
     InitializeVault {
         vault_id: String,
     },
+    InitializeDrift {
+        vault_id: String,
+    },
     Deposit {
         vault_id: String,
         user_pubkey: String,
@@ -21,8 +24,12 @@ pub enum VaultInstruction {
         bot_status: String,
         market_index: u16,
     },
-    InitializeDrift {
+    UpdateDelegate {
         vault_id: String,
+        delegate: String,
+        sub_account: u16,
+        fund_status: String,
+        bot_status: String,
     },
 }
 
@@ -34,6 +41,8 @@ struct VaultPayload {
     fund_status: String,
     bot_status: String,
     market_index: u16,
+    delegate: String,
+    sub_account: u16,
 }
 
 impl VaultInstruction {
@@ -64,6 +73,13 @@ impl VaultInstruction {
             },
             3 => Self::InitializeDrift {
                 vault_id: payload.vault_id,
+            },
+            4 => Self::UpdateDelegate {
+                vault_id: payload.vault_id,
+                delegate: payload.delegate,
+                sub_account: payload.sub_account,
+                fund_status: payload.fund_status,
+                bot_status: payload.bot_status,
             },
             _ => return Err(ProgramError::InvalidInstructionData),
         })

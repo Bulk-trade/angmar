@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, getVaultPda, initializeDrift, initializeVault, updateUserInfo, withdraw } from './vault';
+import { deposit as deposit, getVaultPda, initializeDrift, initializeVault, updateDelegate, updateUserInfo, withdraw } from './vault';
 
 dotenv.config();
 
@@ -136,6 +136,23 @@ app.post('/withdraw-usdc', async (req, res) => {
     } catch (error) {
         console.error('Error during withdraw:', error);
         res.status(500).send('Error during withdraw');
+    }
+});
+
+app.post('/update-delegate', async (req, res) => {
+    try {
+        const { vault_id, delegate, sub_account } = req.body;
+        const signer = await initializeKeypair(connection, {
+            airdropAmount: 2 * LAMPORTS_PER_SOL,
+            envVariableName: "PRIVATE_KEY",
+        });
+
+        await updateDelegate(connection, signer, BULK_PROGRAM_ID, vault_id, delegate, sub_account);
+
+        res.status(200).send('Update successfully');
+    } catch (error) {
+        console.error('Error during update:', error);
+        res.status(500).send('Error during update');
     }
 });
 

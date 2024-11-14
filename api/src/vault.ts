@@ -1,4 +1,4 @@
-import { struct, u8, str, u32, f32, u64, u16, bool } from "@coral-xyz/borsh";
+import { struct, u8, str, u64, u16, bool } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
@@ -24,6 +24,8 @@ const vaultInstructionLayout = struct([
     str("fund_status"),
     str("bot_status"),
     u16("market_index"),
+    str("delegate"),
+    u16("sub_account")
 ]);
 
 const driftDepositLayout = struct([
@@ -514,6 +516,103 @@ export async function withdraw(
     ];
 
     keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const instruction = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: signer.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([signer]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+}
+
+export async function updateDelegate(
+    connection: Connection,
+    signer: Keypair,
+    programId: PublicKey,
+    vault_id: string,
+    delegate: string,
+    sub_account: number,
+) {
+
+    // Log the input parameters
+    console.log('Received withdraw parameters:', { vault_id, delegate, sub_account});
+
+    let buffer = Buffer.alloc(2000);
+    const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
+    const delegate_key = delegate.slice(0, 32); // Truncate to 32 bytes
+
+    const sub_account_bn = new BN(sub_account);
+    vaultInstructionLayout.encode(
+        {
+            variant: 4,
+            vault_id: vault,
+            delegate: delegate_key,
+            sub_account: sub_account_bn,
+            fund_status: FundStatus.Withdrawn,
+            bot_status: BotStatus.Init,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+
+    const vault_pda = getVaultPda(programId, vault_id);
+
+    console.log("Vault PDA is:", vault_pda.toBase58());
+
+    const [user] = getDriftUser(vault_pda);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: signer.publicKey,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: vault_pda,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
 
     console.log(`Keys Length: ${keys.length}`);
 
