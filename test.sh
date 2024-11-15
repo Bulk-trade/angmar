@@ -39,5 +39,5 @@
 echo "Updating Delegate"
 curl -X POST http://localhost:4001/update-delegate \
      -H "Content-Type: application/json" \
-     -d '{"vault_id": "bulk_vault", "delegate": "vAuLTsyrvSfZRuRB3XgvkPwNGgYSs9YRYymVebLKoxR", "sub_account": 0}'
+     -d '{"vault_id": "bulk_vault", "delegate": "BydGBEY37dYiQy8TgohX4vbyQnewtu7BocEDz8kaf2vd", "sub_account": 0}'
 echo ""

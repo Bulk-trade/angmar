@@ -564,9 +564,10 @@ export async function updateDelegate(
 ) {
 
     // Log the input parameters
-    console.log('Received withdraw parameters:', { vault_id, delegate, sub_account});
+    console.log('Received update delegate parameters:', { vault_id, delegate, sub_account});
 
-    let buffer = Buffer.alloc(2000);
+    console.log(new PublicKey(delegate).toString())
+    let buffer = Buffer.alloc(1000);
     const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
     const delegate_key = delegate.slice(0, 32); // Truncate to 32 bytes
 
@@ -575,10 +576,13 @@ export async function updateDelegate(
         {
             variant: 4,
             vault_id: vault,
-            delegate: delegate_key,
-            sub_account: sub_account_bn,
-            fund_status: FundStatus.Withdrawn,
+            user_pubkey: '',
+            amount: sub_account_bn,
+            fund_status: FundStatus.Deposited,
             bot_status: BotStatus.Init,
+            market_index: 0,
+            delegate: delegate,
+            sub_account: sub_account_bn
         },
         buffer
     );

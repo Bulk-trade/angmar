@@ -1,7 +1,7 @@
 use crate::error::VaultError;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
-use drift_interface::{UpdateUserDelegateIxArgs , UpdateUserDelegateIxData};
+use drift_interface::{UpdateUserDelegateIxArgs, UpdateUserDelegateIxData};
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{
@@ -42,21 +42,13 @@ pub fn update_delegate(
 
     let drift_program = next_account_info(account_info_iter)?;
     let drift_user = next_account_info(account_info_iter)?;
-
-    // let token_program = next_account_info(account_info_iter)?;
-    // let system_program = next_account_info(account_info_iter)?;
-
     // First batch - Main accounts
     msg!("1. initializer: {}", initializer.key);
-    msg!("3. vault: {}", vault.key);
+    msg!("2. vault: {}", vault.key);
 
     // Second batch - Drift accounts
-    msg!("5. drift_program: {}", drift_program.key);
-    msg!("6. drift_user: {}", drift_user.key);
-
-    // Fourth batch - System accounts
-    // msg!("16. token_program: {}", token_program.key);
-    // msg!("17. system_program: {}", system_program.key);
+    msg!("3. drift_program: {}", drift_program.key);
+    msg!("4. drift_user: {}", drift_user.key);
 
     if !initializer.is_signer {
         msg!("Missing required signature");
@@ -72,14 +64,21 @@ pub fn update_delegate(
         },
         AccountMeta {
             pubkey: *vault.key,
-            is_signer: false,
+            is_signer: true,
             is_writable: true,
         },
     ];
 
+    let delegate_pubkey = match Pubkey::from_str(&delegate) {
+        Ok(pubkey) => pubkey,
+        Err(_) => {
+            panic!("Delegate string is not a valid Pubkey: {}", delegate);
+        }
+    };
+
     let args = UpdateUserDelegateIxArgs {
         sub_account_id: sub_account,
-        delegate: Pubkey::from_str(&delegate).unwrap(),
+        delegate: delegate_pubkey,
     };
 
     let data: UpdateUserDelegateIxData = args.into();
@@ -90,7 +89,7 @@ pub fn update_delegate(
         data: data.try_to_vec()?,
     };
 
-     let (vault_pda, vault_bump_seed) =
+    let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
 
     msg!("Vault PDA: {}", vault_pda);
@@ -102,11 +101,7 @@ pub fn update_delegate(
 
     invoke_signed(
         &ix,
-        &[
-            drift_user.clone(),
-            vault.clone(),
-            drift_program.clone(),
-        ],
+        &[drift_user.clone(), vault.clone(), drift_program.clone()],
         &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
     )?;
 
