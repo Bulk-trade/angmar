@@ -10,6 +10,8 @@
 # Build the Solana program
 cargo build-sbf 
 
+# Check if the build was successful
+if [ $? -eq 0 ]; then
 # Deploy the Solana program and capture the output
 deploy_output=$(solana program deploy ./target/deploy/vault_program.so)
 
@@ -31,5 +33,10 @@ echo "Starting Server. Run './test.sh' in a separate terminal to execute the API
 # Export the Program ID as an environment variable and run npm run local
 echo "PROGRAM_ID=$program_id npm run local"
 PROGRAM_ID=$program_id npm run local
+
+else
+    echo "Build failed. Deployment aborted."
+    exit 1
+fi
 
 

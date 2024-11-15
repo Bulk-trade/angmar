@@ -1,16 +1,14 @@
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
+    instruction::{AccountMeta, Instruction},
     msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
 };
 
-use drift_interface::{
-    initialize_user_ix, initialize_user_stats_ix, InitializeUserAccounts, InitializeUserIxArgs,
-    InitializeUserKeys, InitializeUserStatsAccounts, InitializeUserStatsKeys,
-};
+use crate::drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData};
 
 pub fn initialize_drift(
     program_id: &Pubkey,
@@ -75,25 +73,50 @@ pub fn initialize_drift(
 
     msg!("Treasury PDA: {}", treasury_pda);
 
-    if drift_interface::ID != *drift_program.key {
+    if drift::ID != *drift_program.key {
         msg!("Invalid Drift Program");
         return Err(ProgramError::InvalidArgument);
     }
 
     // initializeUserStats cpi
-    let user_stats_accounts = InitializeUserStatsAccounts {
-        user_stats: drift_user_stats,
-        state: drift_state,
-        authority: vault,
-        payer: initializer,
-        rent,
-        system_program,
+    let user_stats_accounts = vec![
+        AccountMeta {
+            pubkey: *drift_user_stats.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *drift_state.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *vault.key,
+            is_signer: true,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *initializer.key,
+            is_signer: true,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *rent.key,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *system_program.key,
+            is_signer: false,
+            is_writable: false,
+        },
+    ];
+
+    let user_stats_ix = Instruction {
+        program_id: *drift_program.key,
+        accounts: user_stats_accounts,
+        data: InitializeUserStatsIxData.try_to_vec()?,
     };
-
-    let user_stats_keys: InitializeUserStatsKeys =
-        InitializeUserStatsKeys::from(user_stats_accounts);
-
-    let user_stats_ix = initialize_user_stats_ix(user_stats_keys)?;
 
     invoke_signed(
         &user_stats_ix,
@@ -114,23 +137,67 @@ pub fn initialize_drift(
     let bytes = vault_id.as_bytes();
     name[..bytes.len()].copy_from_slice(bytes);
 
-    let user_accounts = InitializeUserAccounts {
-        user: drift_user,
-        user_stats: drift_user_stats,
-        state: drift_state,
-        authority: vault,
-        payer: initializer,
-        rent,
-        system_program,
-    };
+    let user_accounts = vec![
+        AccountMeta {
+            pubkey: *drift_user.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *drift_user_stats.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *drift_state.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *vault.key,
+            is_signer: true,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *initializer.key,
+            is_signer: true,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *rent.key,
+            is_signer: false,
+            is_writable: false,
+        },
+        AccountMeta {
+            pubkey: *system_program.key,
+            is_signer: false,
+            is_writable: false,
+        },
+    ];
 
-    let user_keys: InitializeUserKeys = InitializeUserKeys::from(user_accounts);
+    //  InitializeUserAccounts {
+    //     user: drift_user,
+    //     user_stats: drift_user_stats,
+    //     state: drift_state,
+    //     authority: vault,
+    //     payer: initializer,
+    //     rent,
+    //     system_program,
+    // };
+
+    // let user_keys: InitializeUserKeys = InitializeUserKeys::from(user_accounts);
     let user_args = InitializeUserIxArgs {
         sub_account_id: 0,
         name,
     };
 
-    let user_ix = initialize_user_ix(user_keys, user_args)?;
+    let data: InitializeUserIxData = user_args.into();
+
+    let user_ix = Instruction {
+        program_id: *drift_program.key,
+        accounts: user_accounts,
+        data: data.try_to_vec()?,
+    };
 
     invoke_signed(
         &user_ix,

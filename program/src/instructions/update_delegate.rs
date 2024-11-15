@@ -1,23 +1,15 @@
-use crate::error::VaultError;
-use crate::state::UserInfoAccountState;
-use borsh::BorshSerialize;
-use drift_interface::{UpdateUserDelegateIxArgs, UpdateUserDelegateIxData};
 use solana_program::instruction::{AccountMeta, Instruction};
-use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
-    system_instruction,
-    sysvar::{rent::Rent, Sysvar},
 };
-use spl_token::instruction;
-use std::convert::TryInto;
 use std::str::FromStr;
+
+use crate::drift::{UpdateUserDelegateIxArgs, UpdateUserDelegateIxData};
 
 pub fn update_delegate(
     program_id: &Pubkey,

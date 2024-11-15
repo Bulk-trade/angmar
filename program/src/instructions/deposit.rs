@@ -1,7 +1,7 @@
+use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::VaultError;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
-use drift_interface::{DepositIxArgs, DepositIxData};
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{

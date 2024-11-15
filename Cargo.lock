@@ -534,18 +534,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "drift_interface"
-version = "2.96.0"
-dependencies = [
- "borsh 0.10.4",
- "num-derive",
- "num-traits",
- "serde",
- "solana-program",
- "thiserror",
-]
-
-[[package]]
 name = "either"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1475,7 +1463,6 @@ name = "vault-program"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
- "drift_interface",
  "num-derive",
  "num-traits",
  "serde",

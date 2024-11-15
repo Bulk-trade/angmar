@@ -1,7 +1,7 @@
+use crate::drift::{WithdrawIxArgs, WithdrawIxData};
 use crate::error::VaultError;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
-use drift_interface::{WithdrawIxArgs, WithdrawIxData};
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
