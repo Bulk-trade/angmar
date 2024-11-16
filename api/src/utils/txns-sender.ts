@@ -28,7 +28,6 @@ export async function versionedTransactionSenderAndConfirmationWaiter({
         serializedTransaction, SEND_OPTIONS
     );
 
-
     const controller = new AbortController();
     const abortSignal = controller.signal;
 
@@ -102,7 +101,7 @@ export async function versionedTransactionSenderAndConfirmationWaiter({
             return response;
         },
         {
-            retries: 5,
+            retries: 10,
             minTimeout: 500,
         }
     );

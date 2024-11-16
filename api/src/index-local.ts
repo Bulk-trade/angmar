@@ -10,7 +10,8 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, getVaultPda, initializeDrift, initializeVault, updateDelegate, updateUserInfo, withdraw } from './vault';
+import { deposit as deposit, initializeDrift, initializeVault, updateDelegate, updateUserInfo, withdraw } from './vault';
+import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
 
@@ -81,13 +82,15 @@ app.post('/deposit-usdc', async (req, res) => {
             envVariableName: "PRIVATE_KEY_USER",
         });
 
-        console.log("before deposit")
-        console.log(await connection.getBalance(signer.publicKey))
+        console.log("before deposit");
+        const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
+        console.log(usdcBalance);
 
         await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
        
         console.log("after deposit")
-        console.log(await connection.getBalance(signer.publicKey))
+        const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
+        console.log(newUsdcBalance);
         res.status(200).send('Deposited successfully');
     } catch (error) {
         console.error('Error during deposit:', error);

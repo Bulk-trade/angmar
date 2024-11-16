@@ -18,7 +18,7 @@ The Angmar project by Bulk Labs is an open-source initiative that provides acces
 
 ## Requirements
 
-- **Solana CLI**: v1.16.3
+- **Solana CLI**: v1.16.10
 - **Platform Tools**: v1.37
 - **Rust Compiler**: rustc 1.68.0 or higher
 

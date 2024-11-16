@@ -3,7 +3,7 @@ import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SO
 import { BotStatus, FundStatus } from "./util";
 import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
-import BN from "bn.js";
+import BN, { min } from "bn.js";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
 import { VersionedTransaction } from "@solana/web3.js";
 import { TransactionMessage } from "@solana/web3.js";
@@ -13,7 +13,12 @@ import { getDriftStateAccountPublicKey } from "@drift-labs/sdk";
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
-        units: 4_00_000,
+        units: 400_000,
+    });
+
+const computePriceInstruction =
+    ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: 500000,
     });
 
 const vaultInstructionLayout = struct([
@@ -284,7 +289,7 @@ export async function deposit(
     mint: PublicKey,
 ) {
     // Log the input parameters
-    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket, spotMarketVault, oracle, mint });
+    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket: spotMarket.toString(), spotMarketVault: spotMarketVault.toString(), oracle: oracle.toString(), mint: mint.toString() });
 
     // Validate input parameters
     if (!vault_id || !user_pubkey) {
@@ -345,7 +350,7 @@ export async function deposit(
         true
     )).address;
 
-    console.log("Treasury Token account:", userTokenAccount.toString());
+    console.log("Treasury Token account:", treasuryTokenAccount.toString());
 
     const driftKeys = await getDriftDepositKeys(connection, signer, programId, userTokenAccount, treasuryTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
 
@@ -389,7 +394,7 @@ export async function deposit(
         new TransactionMessage({
             payerKey: signer.publicKey,
             recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, instruction],
+            instructions: [computeBudgetInstruction, computePriceInstruction,instruction],
         }).compileToV0Message()
     );
 
@@ -564,7 +569,7 @@ export async function updateDelegate(
 ) {
 
     // Log the input parameters
-    console.log('Received update delegate parameters:', { vault_id, delegate, sub_account});
+    console.log('Received update delegate parameters:', { vault_id, delegate, sub_account });
 
     console.log(new PublicKey(delegate).toString())
     let buffer = Buffer.alloc(1000);

@@ -46,7 +46,7 @@ pub fn initialize_vault(
 
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(0);
-    let required_lamports = rent_lamports + (0.03 * LAMPORTS_PER_SOL as f64) as u64;
+    let required_lamports = rent_lamports + (0.001 * LAMPORTS_PER_SOL as f64) as u64;
 
     invoke_signed(
         &system_instruction::create_account(
