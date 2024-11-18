@@ -253,7 +253,7 @@ export async function initializeDrift(
         new TransactionMessage({
             payerKey: signer.publicKey,
             recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, driftIx],
+            instructions: [computeBudgetInstruction, computePriceInstruction, driftIx],
         }).compileToV0Message()
     );
 
@@ -394,7 +394,7 @@ export async function deposit(
         new TransactionMessage({
             payerKey: signer.publicKey,
             recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, computePriceInstruction,instruction],
+            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
         }).compileToV0Message()
     );
 
@@ -537,7 +537,7 @@ export async function withdraw(
         new TransactionMessage({
             payerKey: signer.publicKey,
             recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, instruction],
+            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
         }).compileToV0Message()
     );
 

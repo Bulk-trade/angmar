@@ -11,8 +11,6 @@ import { Keypair } from '@solana/web3.js';
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes/index';
 import { getTokenBalance } from './utils/get-balance';
 import { getOrCreateAssociatedTokenAccount } from '@solana/spl-token';
-import { getOracleClient, getPythPullOraclePublicKey } from '@drift-labs/sdk';
-import { OracleClientCache } from '@drift-labs/sdk/lib/node/oracles/oracleClientCache';
 
 dotenv.config({ path: '.env.production' });
 
@@ -23,7 +21,7 @@ app.use(cors());
 
 const connection = new Connection(process.env.RPC_URL || '', "confirmed");
 
-const BULK_PROGRAM_ID = new PublicKey('8dge6cap3vEmrG8QmUve9xiCvaMVCDXLaRJ6ZPZgs7v5');
+const BULK_PROGRAM_ID = new PublicKey('HvipGKuqeoiyvkAeeCTuGAQ8VUFi9BKGKnNkpLA33PYQ');
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const WSOL = new PublicKey('So11111111111111111111111111111111111111112');
 const SPOT_MARKET_VAULT_USDC = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');

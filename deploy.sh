@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Remove the target directory
-#rm -rf target
+# rm -rf target
 
 # Update deps if not updated
 # https://solana.stackexchange.com/questions/8800/error-use-of-unstable-library-feature-build-hasher-simple-hash-one

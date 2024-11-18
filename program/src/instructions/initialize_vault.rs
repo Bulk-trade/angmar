@@ -2,7 +2,6 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
-    native_token::LAMPORTS_PER_SOL,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
@@ -46,7 +45,7 @@ pub fn initialize_vault(
 
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(0);
-    let required_lamports = rent_lamports + (0.001 * LAMPORTS_PER_SOL as f64) as u64;
+    let required_lamports = rent_lamports;
 
     invoke_signed(
         &system_instruction::create_account(
