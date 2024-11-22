@@ -45,16 +45,9 @@ const remainingAccountsForOrders = [
 ];
 
 export async function getInitializeDriftKeys(
-    signer: PublicKey, programId: PublicKey, vaultId: String,
+    signer: PublicKey, programId: PublicKey, vault: PublicKey,
 ): Promise<AccountMeta[]> {
-    const [vault_signer] = PublicKey.findProgramAddressSync(
-        [Buffer.from("signer"), Buffer.from(vaultId)],
-        programId
-    );
 
-    console.log(`Vault Signer PDA is: ${vault_signer}`);
-
-    const vault = getVaultPda(programId, vaultId);
     const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 

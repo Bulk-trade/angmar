@@ -14,6 +14,9 @@ pub enum VaultError {
 
     #[error("Input data is invalid")]
     InvalidInput,
+
+    #[error("Input data for initialization is invalid")]
+    InvalidVaultInitialization,
 }
 
 impl From<VaultError> for ProgramError {

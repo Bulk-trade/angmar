@@ -45,13 +45,12 @@ pub fn initialize_vault(
 
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(0);
-    let required_lamports = rent_lamports;
 
     invoke_signed(
         &system_instruction::create_account(
             initializer.key,
             vault.key,
-            required_lamports,
+            rent_lamports,
             0,
             program_id,
         ),

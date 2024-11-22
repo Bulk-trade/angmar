@@ -153,8 +153,7 @@ pub fn deposit(
 
             updated_data
         }
-        Err(e) => {
-            msg!("Error unpacking account data: {:?}", e);
+        Err(_e) => {
             msg!("Account is not initialized");
             msg!("Creating the acccount");
             invoke_signed(

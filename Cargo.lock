@@ -1463,6 +1463,7 @@ name = "vault-program"
 version = "0.1.0"
 dependencies = [
  "borsh 0.10.4",
+ "bytemuck",
  "num-derive",
  "num-traits",
  "serde",

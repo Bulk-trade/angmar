@@ -8,6 +8,14 @@ pub enum VaultInstruction {
     InitializeDrift {
         vault_id: String,
     },
+    InitializeDriftWithBulk {
+        name: String,
+        management_fee: u64,
+        min_deposit_amount: u64,
+        profit_share: u32,
+        spot_market_index: u16,
+        permissioned: bool,
+    },
     Deposit {
         vault_id: String,
         user_pubkey: String,
@@ -34,7 +42,7 @@ pub enum VaultInstruction {
 }
 
 #[derive(BorshDeserialize)]
-struct VaultPayload {
+struct BaseVaultPayload {
     vault_id: String,
     user_pubkey: String,
     amount: u64,
@@ -45,41 +53,76 @@ struct VaultPayload {
     sub_account: u16,
 }
 
+#[derive(BorshDeserialize)]
+struct InitVaultPayload {
+    name: String,
+    management_fee: u64,
+    min_deposit_amount: u64,
+    profit_share: u32,
+    spot_market_index: u16,
+    permissioned: bool,
+}
+
 impl VaultInstruction {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         let (&variant, rest) = input
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
-        let payload = VaultPayload::try_from_slice(rest).unwrap();
         Ok(match variant {
-            0 => Self::InitializeVault {
-                vault_id: payload.vault_id,
+            0 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::InitializeVault {
+                    vault_id: payload.vault_id,
+                }
+            }
+            1 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::Deposit {
+                    vault_id: payload.vault_id,
+                    user_pubkey: payload.user_pubkey,
+                    amount: payload.amount,
+                    fund_status: payload.fund_status,
+                    bot_status: payload.bot_status,
+                    market_index: payload.market_index,
+                }
+            }
+            2 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::Withdraw {
+                    vault_id: payload.vault_id,
+                    user_pubkey: payload.user_pubkey,
+                    amount: payload.amount,
+                    fund_status: payload.fund_status,
+                    bot_status: payload.bot_status,
+                    market_index: payload.market_index,
+                }
+            }
+            3 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::InitializeDrift {
+                    vault_id: payload.vault_id,
+                }
+            }
+            4 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::UpdateDelegate {
+                    vault_id: payload.vault_id,
+                    delegate: payload.delegate,
+                    sub_account: payload.sub_account,
+                    fund_status: payload.fund_status,
+                    bot_status: payload.bot_status,
+                }
             },
-            1 => Self::Deposit {
-                vault_id: payload.vault_id,
-                user_pubkey: payload.user_pubkey,
-                amount: payload.amount,
-                fund_status: payload.fund_status,
-                bot_status: payload.bot_status,
-                market_index: payload.market_index,
-            },
-            2 => Self::Withdraw {
-                vault_id: payload.vault_id,
-                user_pubkey: payload.user_pubkey,
-                amount: payload.amount,
-                fund_status: payload.fund_status,
-                bot_status: payload.bot_status,
-                market_index: payload.market_index,
-            },
-            3 => Self::InitializeDrift {
-                vault_id: payload.vault_id,
-            },
-            4 => Self::UpdateDelegate {
-                vault_id: payload.vault_id,
-                delegate: payload.delegate,
-                sub_account: payload.sub_account,
-                fund_status: payload.fund_status,
-                bot_status: payload.bot_status,
+            5 => {
+                let payload = InitVaultPayload::try_from_slice(rest).unwrap();
+                Self::InitializeDriftWithBulk {
+                    name: payload.name,
+                    management_fee: payload.management_fee,
+                    min_deposit_amount: payload.min_deposit_amount,
+                    profit_share: payload.profit_share,
+                    spot_market_index: payload.spot_market_index,
+                    permissioned: payload.permissioned,
+                }
             },
             _ => return Err(ProgramError::InvalidInstructionData),
         })

@@ -3,6 +3,9 @@
 # Remove the target directory
 # rm -rf target
 
+#Set localhost
+#solana config set --url localhost
+
 # Update deps if not updated
 # https://solana.stackexchange.com/questions/8800/error-use-of-unstable-library-feature-build-hasher-simple-hash-one
 # cargo update -p ahash@0.8.11 --precise 0.8.6

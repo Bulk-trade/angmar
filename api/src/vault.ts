@@ -1,15 +1,14 @@
-import { struct, u8, str, u64, u16, bool } from "@coral-xyz/borsh";
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, FundStatus } from "./util";
 import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
-import BN, { min } from "bn.js";
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
 import { VersionedTransaction } from "@solana/web3.js";
 import { TransactionMessage } from "@solana/web3.js";
 import { getSignature } from "./utils/get-signature";
 import { handleTransactionResponse } from "./utils/handle-txn";
-import { getDriftStateAccountPublicKey } from "@drift-labs/sdk";
+import BN from "bn.js";
+import { initVaultInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
@@ -21,34 +20,16 @@ const computePriceInstruction =
         microLamports: 500000,
     });
 
-const vaultInstructionLayout = struct([
-    u8("variant"),
-    str("vault_id"),
-    str("user_pubkey"),
-    u64("amount"),
-    str("fund_status"),
-    str("bot_status"),
-    u16("market_index"),
-    str("delegate"),
-    u16("sub_account")
-]);
-
-const driftDepositLayout = struct([
-    u16("marketIndex"),
-    u64("amount"),
-    bool("reduceOnly"),
-]);
-
 export async function readPdaInfo(
     signer: Keypair,
     programId: PublicKey,
     connection: Connection,
-    user_pubkey: string,
+    name: string,
 ) {
     //const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
 
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(user_pubkey)],
+        [Buffer.from("vault"), Buffer.from(name)],
         programId
     );
 
@@ -62,24 +43,9 @@ export async function readPdaInfo(
 
     console.log(accountInfo.data)
     //Deserialize the data
-    const data = vaultInstructionLayout.decode(accountInfo.data);
+    const data = initVaultInstuctionLayout.decode(accountInfo.data);
     // Convert the user_pubkey from bytes to a PublicKey string
-    console.log({
-        variant: data.variant,
-        vault: data.vault_id,
-        user_pubkey: data.user_pubkey,
-        amount: data.amount,
-        fund_status: data.fund_status,
-        bot_status: data.bot_status,
-    });
-
-    return {
-        variant: data.variant,
-        user_pubkey: data.user_pubkey,
-        amount: data.amount,
-        fund_status: data.fund_status,
-        bot_status: data.bot_status,
-    }
+    console.log(JSON.stringify(data, null, 2));
 }
 
 export async function initializeVault(
@@ -216,7 +182,7 @@ export async function initializeDrift(
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault_id);
+    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault);
 
     const keys: AccountMeta[] = [
         {
@@ -258,6 +224,128 @@ export async function initializeDrift(
     );
 
     transaction.sign([signer]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+}
+
+export async function initializeDriftWithBulk(
+    connection: Connection,
+    manager: Keypair,
+    programId: PublicKey,
+    vault_name: string,
+    mint: PublicKey,
+) {
+
+    // Log the input parameters
+    console.log('Received init drift parameters:', { vault_name });
+
+    let buffer = Buffer.alloc(2000);
+    const name = vault_name.slice(0, 32); // Truncate to 32 bytes
+
+    const management_fee = new BN(100000);
+
+    const min_deposit_amount = new BN(1000);
+
+    const profit_share = new BN(100000);
+
+    initVaultInstuctionLayout.encode(
+        {
+            variant: 5,
+            name,
+            management_fee,
+            min_deposit_amount,
+            profit_share,
+            spot_market_index: 0,
+            permissioned: false,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, initVaultInstuctionLayout.getSpan(buffer));
+
+
+    const [vault] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault"), Buffer.from(vault_name)],
+        programId
+    );
+
+    console.log("Vault PDA is:", vault.toBase58());
+
+    const [treasury] = PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vault_name)],
+        programId
+    );
+
+    console.log("Treasury PDA is:", treasury.toBase58());
+
+    const vaultTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        manager,
+        mint,
+        vault,
+        true
+    )).address;
+
+    const driftKeys = await getInitializeDriftKeys(manager.publicKey, programId, vault);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: manager.publicKey,
+            isSigner: true,
+            isWritable: false,
+        },
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const driftIx = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys,
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: manager.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, computePriceInstruction, driftIx],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([manager]);
 
     // Get the transaction signature
     const signature = getSignature(transaction);
@@ -718,9 +806,9 @@ export async function updateUserInfo(
     console.log(`https://solscan.io//tx/${tx}`);
 }
 
-export function getVaultPda(programId: PublicKey, vaultId: String) {
+export function getVaultPda(programId: PublicKey, name: String) {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from(vaultId)],
+        [Buffer.from("vault"), Buffer.from(name)],
         programId
     );
 

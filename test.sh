@@ -15,6 +15,13 @@
 #      -d '{"vault_id": "bulk_vault"}'
 # echo ""
 
+# Initialize the drift vault with bulk
+echo "Initializing drift vault..."
+curl -X POST http://localhost:4001/init-drift-bulk \
+     -H "Content-Type: application/json" \
+     -d '{"name": "bulk_vault"}'
+echo ""
+
 # # Deposit into the vault
 # echo "Depositing usdc into vault..."
 # curl -X POST http://localhost:4001/deposit-usdc \
@@ -29,8 +36,8 @@
 #      -d '{"vault_id": "bulk_vault", "user_pubkey": "sunit", "amount": 9000}'
 # echo ""
 
-echo "Updating Delegate"
-curl -X POST http://localhost:4001/update-delegate \
-     -H "Content-Type: application/json" \
-     -d '{"vault_id": "bulk_vault", "delegate": "CCS5GBTmg9VMsuwXRXPBDeYAiJgjme6FUE1vVammsEeC", "sub_account": 0}'
-echo ""
+# echo "Updating Delegate"
+# curl -X POST http://localhost:4001/update-delegate \
+#      -H "Content-Type: application/json" \
+#      -d '{"vault_id": "bulk_vault", "delegate": "CCS5GBTmg9VMsuwXRXPBDeYAiJgjme6FUE1vVammsEeC", "sub_account": 0}'
+# echo ""

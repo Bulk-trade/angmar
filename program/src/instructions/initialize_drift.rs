@@ -175,17 +175,6 @@ pub fn initialize_drift(
         },
     ];
 
-    //  InitializeUserAccounts {
-    //     user: drift_user,
-    //     user_stats: drift_user_stats,
-    //     state: drift_state,
-    //     authority: vault,
-    //     payer: initializer,
-    //     rent,
-    //     system_program,
-    // };
-
-    // let user_keys: InitializeUserKeys = InitializeUserKeys::from(user_accounts);
     let user_args = InitializeUserIxArgs {
         sub_account_id: 0,
         name,

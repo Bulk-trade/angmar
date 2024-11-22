@@ -5,3 +5,4 @@ pub mod state;
 pub mod error;
 pub mod instructions;
 pub mod drift;
+pub mod macros;
