@@ -16,6 +16,7 @@ pub enum VaultInstruction {
         spot_market_index: u16,
         permissioned: bool,
     },
+    InitializeVaultDepositor {},
     Deposit {
         vault_id: String,
         user_pubkey: String,
@@ -112,7 +113,7 @@ impl VaultInstruction {
                     fund_status: payload.fund_status,
                     bot_status: payload.bot_status,
                 }
-            },
+            }
             5 => {
                 let payload = InitVaultPayload::try_from_slice(rest).unwrap();
                 Self::InitializeDriftWithBulk {
@@ -123,7 +124,10 @@ impl VaultInstruction {
                     spot_market_index: payload.spot_market_index,
                     permissioned: payload.permissioned,
                 }
-            },
+            }
+            6 => {
+                Self::InitializeVaultDepositor {}
+            }
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

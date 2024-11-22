@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeDrift, initializeDriftWithBulk, initializeVault, readPdaInfo, updateDelegate, updateUserInfo, withdraw } from './vault';
+import { deposit as deposit, initializeDrift, initializeDriftWithBulk, initializeVault, initializeVaultDepositor, readPdaInfo, updateDelegate, updateUserInfo, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -85,7 +85,7 @@ app.post('/init-drift-bulk', async (req, res) => {
 
         console.log(`Signer: ${manager.publicKey}`)
 
-        await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, name, USDC_MINT_LOCAL);
+        await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, name, USDC_MINT_LOCAL, false);
         res.status(200).send('Initialized Vault with bulk successfully');
     } catch (error) {
         console.error(error);
@@ -106,7 +106,7 @@ app.post('/deposit-usdc', async (req, res) => {
         console.log(usdcBalance);
 
         await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
-       
+
         console.log("after deposit")
         const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
         console.log(newUsdcBalance);
@@ -129,7 +129,7 @@ app.post('/deposit-wsol', async (req, res) => {
         console.log(await connection.getBalance(signer.publicKey))
 
         await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 1, SPOT_MARKET_WSOL, SPOT_MARKET_VAULT_WSOL, ORACLE_WSOL, WSOL);
-    
+
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))
         res.status(200).send('Deposited successfully');
@@ -203,31 +203,24 @@ app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`BULK Vault Program Id: ${BULK_PROGRAM_ID.toString()}`);
 
-    const signer = await initializeKeypair(connection, {
+    const admin = await initializeKeypair(connection, {
+        airdropAmount: 2 * LAMPORTS_PER_SOL,
+        envVariableName: "PRIVATE_KEY",
+    });
+
+
+    const user = await initializeKeypair(connection, {
         airdropAmount: 2 * LAMPORTS_PER_SOL,
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    console.log('SIGNER', signer.publicKey.toString());
+    const vault_name = 'bulk2';
 
-    const usdcAccount = await connection.getTokenAccountsByOwner(signer.publicKey, {
-        mint: USDC_MINT_LOCAL
-    });
+    console.log('Admin SIGNER', admin.publicKey.toString());
+    console.log('User SIGNER', user.publicKey.toString());
 
-    console.log('USER USDC account', usdcAccount.value[0].pubkey.toString());
+    //await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, true);
 
-    await initializeDriftWithBulk(connection, signer, BULK_PROGRAM_ID, 'bulk', USDC_MINT_LOCAL);
-
-   // await readPdaInfo(signer, BULK_PROGRAM_ID, connection, 'bulk_vault')
-    // if (BULK_PROGRAM_ID) {
-    //     const vault = getVaultPda(BULK_PROGRAM_ID, 'bulk_vault');
-    //     const vaultTokenAccount = (await connection.getTokenAccountsByOwner(vault, {
-    //         mint: USDC_MINT_LOCAL
-    //     })).value[0].pubkey;
-
-    //     console.log('Vault USDC account', vaultTokenAccount.toString());
-    // } else {
-    //     console.error('BULK_PROGRAM_ID is not set');
-    // }
+    await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 });
 

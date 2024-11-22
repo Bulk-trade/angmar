@@ -1,7 +1,21 @@
-use crate::{drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData}, error::VaultError};
-use solana_program::{
-    account_info::{next_account_info, AccountInfo}, borsh0_10::try_from_slice_unchecked, clock::Clock, entrypoint::ProgramResult, instruction::{AccountMeta, Instruction}, msg, program::invoke_signed, program_error::ProgramError, pubkey::Pubkey, system_instruction, sysvar::{rent::Rent, Sysvar}
+use crate::{
+    drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData},
+    error::VaultError,
 };
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    borsh0_10::try_from_slice_unchecked,
+    clock::Clock,
+    entrypoint::ProgramResult,
+    instruction::{AccountMeta, Instruction},
+    msg,
+    program::invoke_signed,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    system_instruction,
+    sysvar::{rent::Rent, Sysvar},
+};
+use borsh::BorshSerialize;
 
 use crate::state::Vault;
 
@@ -99,7 +113,6 @@ pub fn initialize_drift_vault_with_bulk(
 
     let percentage_precision = 1_000_000 as u64;
 
-
     if !management_fee < percentage_precision {
         msg!("management fee must be < 100%");
         return Err(VaultError::InvalidVaultInitialization.into());
@@ -107,7 +120,7 @@ pub fn initialize_drift_vault_with_bulk(
 
     data.management_fee = management_fee;
 
-      if !management_fee < percentage_precision {
+    if !management_fee < percentage_precision {
         msg!("profit share must be < 100%");
         return Err(VaultError::InvalidVaultInitialization.into());
     }
@@ -115,6 +128,10 @@ pub fn initialize_drift_vault_with_bulk(
 
     data.bump = vault_bump_seed;
     data.permissioned = permissioned;
+
+    msg!("serializing account");
+    data.serialize(&mut &mut vault.data.borrow_mut()[..])?;
+    msg!("state account serialized");
 
     // Create Treasury PDA
     let (treasury_pda, treasury_bump_seed) =
@@ -133,11 +150,7 @@ pub fn initialize_drift_vault_with_bulk(
             0,
             program_id,
         ),
-        &[
-            manager.clone(),
-            treasury.clone(),
-            system_program.clone(),
-        ],
+        &[manager.clone(), treasury.clone(), system_program.clone()],
         &[&[b"treasury", name.as_bytes().as_ref(), &[treasury_bump_seed]]],
     )?;
 
