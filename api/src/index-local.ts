@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { deposit as deposit, initializeDrift, initializeDriftWithBulk, initializeVault, initializeVaultDepositor, readPdaInfo, updateDelegate, updateUserInfo, withdraw } from './vault';
+import { deposit, deposit_old, initializeDrift, initializeDriftWithBulk, initializeVault, initializeVaultDepositor, updateDelegate, updateUserInfo, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -25,6 +25,7 @@ const BULK_PROGRAM_ID = new PublicKey(process.env.PROGRAM_ID || '');
 
 const USDC_MINT_LOCAL = new PublicKey('Fgfq9JbxkvAXcuqW2BSHgRZHY9DeEc8vQzieL3QaBy8G');
 const WSOL = new PublicKey('So11111111111111111111111111111111111111112');
+
 const SPOT_MARKET_VAULT_USDC = new PublicKey('GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg');
 const SPOT_MARKET_VAULT_WSOL = new PublicKey('DfYCNezifxAEsQbAJ1b3j6PX3JVBe8fu11KBhxsbw5d2');
 
@@ -105,7 +106,7 @@ app.post('/deposit-usdc', async (req, res) => {
         const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
         console.log(usdcBalance);
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
+        await deposit_old(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, ORACLE_USDC, SPOT_MARKET_VAULT_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
         console.log("after deposit")
         const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
@@ -128,7 +129,7 @@ app.post('/deposit-wsol', async (req, res) => {
         console.log("before deposit")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 1, SPOT_MARKET_WSOL, SPOT_MARKET_VAULT_WSOL, ORACLE_WSOL, WSOL);
+        await deposit_old(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 1, SPOT_MARKET_WSOL, SPOT_MARKET_VAULT_WSOL, ORACLE_WSOL, WSOL);
 
         console.log("after deposit")
         console.log(await connection.getBalance(signer.publicKey))
@@ -214,13 +215,15 @@ app.listen(PORT, async () => {
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    const vault_name = 'bulk2';
+    const vault_name = 'bulk';
 
     console.log('Admin SIGNER', admin.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    //await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, true);
+    //await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, false);
 
-    await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+    //await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+
+    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000, ORACLE_USDC, SPOT_MARKET_VAULT_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 });
 

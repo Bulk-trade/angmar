@@ -1,10 +1,13 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use drift::math::margin::calculate_user_equity;
+use drift::state::oracle_map::OracleMap;
+use drift::state::perp_market_map::PerpMarketMap;
+use drift::state::spot_market_map::SpotMarketMap;
 use solana_program::program_pack::Sealed;
 use solana_program::pubkey::Pubkey;
 
-
 #[derive(BorshSerialize, BorshDeserialize)]
-pub struct Vault{
+pub struct Vault {
     /// The name of the vault. Vault pubkey is derived from this name.
     pub name: [u8; 32],
     /// The vault's pubkey. It is a pda of name and also used as the authority for drift user
@@ -82,5 +85,39 @@ impl Sealed for Vault {}
 impl Vault {
     pub fn get_vault_signer_seeds<'a>(name: &'a [u8], bump: &'a u8) -> [&'a [u8]; 3] {
         [b"vault".as_ref(), name, bytemuck::bytes_of(bump)]
+    }
+
+    pub fn calculate_equity(
+        &self,
+        user: &User,
+        perp_market_map: &PerpMarketMap,
+        spot_market_map: &SpotMarketMap,
+        oracle_map: &mut OracleMap,
+    ) -> VaultResult<u64> {
+        let (vault_equity, all_oracles_valid) =
+            calculate_user_equity(user, perp_market_map, spot_market_map, oracle_map)?;
+
+        // validate!(
+        //     all_oracles_valid,
+        //     ErrorCode::InvalidEquityValue,
+        //     "oracle invalid"
+        // )?;
+        // validate!(
+        //     vault_equity >= 0,
+        //     ErrorCode::InvalidEquityValue,
+        //     "vault equity negative"
+        // )?;
+
+        let spot_market = spot_market_map.get_ref(&self.spot_market_index)?;
+        let spot_market_precision = spot_market.get_precision().cast::<i128>()?;
+        let oracle_price = oracle_map
+            .get_price_data(&spot_market.oracle)?
+            .price
+            .cast::<i128>()?;
+
+        Ok(vault_equity
+            .safe_mul(spot_market_precision)?
+            .safe_div(oracle_price)?
+            .cast::<u64>()?)
     }
 }

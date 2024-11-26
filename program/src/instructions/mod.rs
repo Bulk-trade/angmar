@@ -5,6 +5,7 @@ pub mod initialize_drift;
 pub mod update_delegate;
 pub mod initialize_drift_vault_with_bulk;
 pub mod initialize_vault_depositor;
+pub mod deposit_old;
 
 pub use initialize_vault::*;
 pub use deposit::*;
@@ -13,3 +14,4 @@ pub use initialize_drift::*;
 pub use update_delegate::*;
 pub use initialize_drift_vault_with_bulk::*;
 pub use initialize_vault_depositor::*;
+pub use deposit_old::*;

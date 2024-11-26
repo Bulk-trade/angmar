@@ -18,6 +18,10 @@ pub enum VaultInstruction {
     },
     InitializeVaultDepositor {},
     Deposit {
+        name: String,
+        amount: u64,
+    },
+    DepositOld {
         vault_id: String,
         user_pubkey: String,
         amount: u64,
@@ -64,6 +68,12 @@ struct InitVaultPayload {
     permissioned: bool,
 }
 
+#[derive(BorshDeserialize)]
+struct DepositPayload {
+    name: String,
+    amount: u64,
+}
+
 impl VaultInstruction {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         let (&variant, rest) = input
@@ -77,14 +87,10 @@ impl VaultInstruction {
                 }
             }
             1 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                let payload = DepositPayload::try_from_slice(rest).unwrap();
                 Self::Deposit {
-                    vault_id: payload.vault_id,
-                    user_pubkey: payload.user_pubkey,
+                    name: payload.name,
                     amount: payload.amount,
-                    fund_status: payload.fund_status,
-                    bot_status: payload.bot_status,
-                    market_index: payload.market_index,
                 }
             }
             2 => {
@@ -125,8 +131,17 @@ impl VaultInstruction {
                     permissioned: payload.permissioned,
                 }
             }
-            6 => {
-                Self::InitializeVaultDepositor {}
+            6 => Self::InitializeVaultDepositor {},
+            7 => {
+                 let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                   Self::DepositOld {
+                    vault_id: payload.vault_id,
+                    user_pubkey: payload.user_pubkey,
+                    amount: payload.amount,
+                    fund_status: payload.fund_status,
+                    bot_status: payload.bot_status,
+                    market_index: payload.market_index,
+                }
             }
             _ => return Err(ProgramError::InvalidInstructionData),
         })

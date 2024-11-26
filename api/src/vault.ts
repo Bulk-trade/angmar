@@ -8,7 +8,7 @@ import { TransactionMessage } from "@solana/web3.js";
 import { getSignature } from "./utils/get-signature";
 import { handleTransactionResponse } from "./utils/handle-txn";
 import BN from "bn.js";
-import { initVaultInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
+import { depositInstuctionLayout, initVaultInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
@@ -397,7 +397,7 @@ export async function initializeVaultDepositor(
         programId
     );
 
-    console.log("Vault Depositor is:", vault.toBase58());
+    console.log("Vault Depositor is:", vault_depositor.toBase58());
 
 
     const keys: AccountMeta[] = [
@@ -461,6 +461,142 @@ export async function initializeVaultDepositor(
 }
 
 export async function deposit(
+    connection: Connection,
+    authority: Keypair,
+    programId: PublicKey,
+    vault_name: string,
+    amount: number,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey,
+) {
+    // Log the input parameters
+    console.log('Received deposit parameters:', { vault_name, amount, spotMarket: spotMarket.toString(), spotMarketVault: spotMarketVault.toString(), oracle: oracle.toString(), mint: mint.toString() });
+
+
+    let buffer = Buffer.alloc(1000);
+
+    // Assuming `amount` is a number
+    const amountBN = new BN(amount);
+
+    depositInstuctionLayout.encode(
+        {
+            variant: 1,
+            name: vault_name.slice(0, 32),
+            amount: amountBN,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, depositInstuctionLayout.getSpan(buffer));
+
+    const [vault] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault"), Buffer.from(vault_name)],
+        programId
+    );
+
+    console.log("Vault PDA is:", vault.toBase58());
+
+    const [vault_depositor] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault_depositor"), vault.toBuffer(), authority.publicKey.toBuffer()],
+        programId
+    );
+
+    console.log("Vault Depositor is:", vault.toBase58());
+
+    const [treasury] = PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from([98, 117, 108, 107, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])],
+        programId
+    );
+
+    console.log(JSON.stringify(Buffer.from(vault_name)))
+
+    console.log("Treasury PDA is:", treasury.toBase58());
+
+    const userTokenAccount = (await connection.getTokenAccountsByOwner(authority.publicKey, {
+        mint: mint
+    })).value[0].pubkey;
+
+    console.log("User Token account:", userTokenAccount.toString());
+
+    const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        authority,
+        mint,
+        treasury,
+        true
+    )).address;
+
+    console.log("Treasury Token account:", treasuryTokenAccount.toString());
+
+    const driftKeys = await getDriftDepositKeys(connection, authority, programId, userTokenAccount, treasuryTokenAccount, vault_name, spotMarket, spotMarketVault, oracle, mint);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vault_depositor,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: authority.publicKey,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const instruction = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: authority.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([authority]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+
+    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+}
+
+export async function deposit_old(
     connection: Connection,
     signer: Keypair,
     programId: PublicKey,

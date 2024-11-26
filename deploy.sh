@@ -10,8 +10,12 @@
 # https://solana.stackexchange.com/questions/8800/error-use-of-unstable-library-feature-build-hasher-simple-hash-one
 # cargo update -p ahash@0.8.11 --precise 0.8.6
 
+# Update for drift
+# cargo update -p bumpalo@3.16.0 --precise 3.14.0
+# cargo update -p anchor-lang@0.30.0 --precise 0.29.0
+
 # Build the Solana program
-cargo build-sbf 
+cargo build-sbf --tools-version v1.39  
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then

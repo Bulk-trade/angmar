@@ -21,3 +21,9 @@ export const initVaultInstuctionLayout = struct([
     u16("spot_market_index"),
     bool("permissioned"),
 ]);
+
+export const depositInstuctionLayout = struct([
+    u8("variant"),
+    str("name"),
+    u64("amount"),
+]);

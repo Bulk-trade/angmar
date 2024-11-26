@@ -2,6 +2,7 @@ use crate::{
     drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData},
     error::VaultError,
 };
+use borsh::BorshSerialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     borsh0_10::try_from_slice_unchecked,
@@ -15,7 +16,6 @@ use solana_program::{
     system_instruction,
     sysvar::{rent::Rent, Sysvar},
 };
-use borsh::BorshSerialize;
 
 use crate::state::Vault;
 
