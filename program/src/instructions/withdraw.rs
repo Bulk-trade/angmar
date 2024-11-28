@@ -24,6 +24,8 @@ pub fn withdraw(
     bot_status: String,
     market_index: u16,
 ) -> ProgramResult {
+
+    //https://github.com/solana-labs/farms/blob/master/fund/src/instructions/request_withdrawal.rs
     msg!("Starting withdraw...");
     msg!("vault_id: {}", vault_id);
     msg!("user_pubkey: {}", user_pubkey);

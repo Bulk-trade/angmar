@@ -6,3 +6,4 @@ pub mod error;
 pub mod instructions;
 pub mod drift;
 pub mod macros;
+pub mod common;

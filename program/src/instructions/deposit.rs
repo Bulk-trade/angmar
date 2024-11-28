@@ -1,10 +1,10 @@
 use crate::drift::{DepositIxArgs, DepositIxData};
-use crate::state::Vault;
+use crate::error::VaultError;
+use crate::state::{vault_depositor, Vault, VaultDepositor};
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke_signed,
@@ -25,8 +25,8 @@ pub fn deposit(
 
     let account_info_iter = &mut accounts.iter();
 
-    let vault = next_account_info(account_info_iter)?;
-    let vault_depositor = next_account_info(account_info_iter)?;
+    let vault_account = next_account_info(account_info_iter)?;
+    let vault_depositor_account = next_account_info(account_info_iter)?;
     let authority = next_account_info(account_info_iter)?;
     let treasury = next_account_info(account_info_iter)?;
 
@@ -47,8 +47,8 @@ pub fn deposit(
     let system_program = next_account_info(account_info_iter)?;
 
     // First batch - Main accounts
-    msg!("vault: {}", vault.key);
-    msg!("vault_depositor: {}", vault_depositor.key);
+    msg!("vault: {}", vault_account.key);
+    msg!("vault_depositor: {}", vault_depositor_account.key);
     msg!("authority: {}", authority.key);
     msg!("treasury: {}", treasury.key);
 
@@ -79,58 +79,62 @@ pub fn deposit(
     let (vault_depositor_pda, _) = Pubkey::find_program_address(
         &[
             b"vault_depositor",
-            vault.key.as_ref(),
+            vault_account.key.as_ref(),
             authority.key.as_ref(),
         ],
         program_id,
     );
 
-    if vault_depositor_pda != *vault_depositor.key {
+    if vault_depositor_pda != *vault_depositor_account.key {
         msg!("Invalid seeds for Vault Depositor PDA");
         return Err(ProgramError::InvalidArgument);
     }
 
-    const FEE_PERCENTAGE: u64 = 2;
-    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
-    amount -= fees;
-
     msg!("unpacking vault state account");
-    let vault_data = try_from_slice_unchecked::<Vault>(&vault.data.borrow())?;
+    let mut vault = Vault::get(vault_account);
 
     // Print the specified fields from vault_data
-    msg!("Name: {:?}", vault_data.name);
-    msg!("Pubkey: {:?}", vault_data.pubkey);
-    msg!("Manager: {:?}", vault_data.manager);
-    msg!("User Stats: {:?}", vault_data.user_stats);
-    msg!("User: {:?}", vault_data.user);
-    msg!("Token Account: {:?}", vault_data.token_account);
-    msg!("Spot Market Index: {:?}", vault_data.spot_market_index);
-    msg!("Init Timestamp: {:?}", vault_data.init_ts);
-    msg!("Min Deposit Amount: {:?}", vault_data.min_deposit_amount);
-    msg!("Management Fee: {:?}", vault_data.management_fee);
-    msg!("Profit Share: {:?}", vault_data.profit_share);
-    msg!("Bump: {:?}", vault_data.bump);
-    msg!("Permissioned: {:?}", vault_data.permissioned);
+    msg!("Name: {:?}", vault.name);
+    msg!("Pubkey: {:?}", vault.pubkey);
+    msg!("Manager: {:?}", vault.manager);
+    msg!("User Stats: {:?}", vault.user_stats);
+    msg!("User: {:?}", vault.user);
+    msg!("Token Account: {:?}", vault.token_account);
+    msg!("Spot Market Index: {:?}", vault.spot_market_index);
+    msg!("Init Timestamp: {:?}", vault.init_ts);
+    msg!("Min Deposit Amount: {:?}", vault.min_deposit_amount);
+    msg!("Management Fee: {:?}", vault.management_fee);
+    msg!("Profit Share: {:?}", vault.profit_share);
+    msg!("Bump: {:?}", vault.bump);
+    msg!("Permissioned: {:?}", vault.permissioned);
 
-    let clock = &Clock::get()?;
+    msg!("Getting Vault Depositor");
+    let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 
-    let spot_market_index = vault_data.spot_market_index;
-    let AccountMaps {
-        perp_market_map,
-        spot_market_map,
-        mut oracle_map,
-    } = load_maps(clock.slot, Some(spot_market_index), vp.is_some())?;
+    if amount < vault.min_deposit_amount {
+        msg!("Deposit can't be less then {}", vault.min_deposit_amount);
+        return Err(VaultError::InvalidInput.into());
+    }
 
-    let vault_equity =
-        vault_data.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
+    let vault_fee = vault.management_fee;
+    let fees = (amount * vault_fee + 99) / 100;
+    amount -= fees;
 
-    // vault_depositor.deposit(
-    //     amount,
-    //     vault_equity,
-    //     &mut vault,
-    //     &mut vp,
-    //     clock.unix_timestamp,
-    // )?;
+    msg!("Fees: {}", fees);
+    msg!("Amount after fees: {}", amount);
+
+    msg!("Issuing user shares: {}", amount);
+    vault.net_deposits += amount;
+    vault.total_deposits += amount;
+    vault.total_shares += amount as u128;
+
+    Vault::save(&vault, vault_account);
+
+    vault_depositor.vault_shares += amount as u128;
+    vault_depositor.total_deposits += amount;
+    vault_depositor.net_deposits += amount;
+
+    VaultDepositor::save(vault_depositor, vault_depositor_account);
 
     msg!("Depositing Fees to Treasury Pda...");
     invoke(
@@ -151,7 +155,7 @@ pub fn deposit(
         ],
     )?;
 
-    if vault_data.pubkey != *vault.key {
+    if vault.pubkey != *vault_account.key {
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -178,7 +182,7 @@ pub fn deposit(
     let (vault_pda, vault_bump_seed) =
         Pubkey::find_program_address(&[b"vault", name.as_ref()], program_id);
 
-    if vault_pda != *vault.key {
+    if vault_pda != *vault_account.key {
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
@@ -202,7 +206,7 @@ pub fn deposit(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: *vault.key,
+            pubkey: *vault_account.key,
             is_signer: true,
             is_writable: true,
         },
@@ -234,7 +238,7 @@ pub fn deposit(
     ];
 
     let args = DepositIxArgs {
-        market_index: vault_data.spot_market_index,
+        market_index: vault.spot_market_index,
         amount,
         reduce_only: false,
     };
@@ -253,7 +257,7 @@ pub fn deposit(
             drift_state.clone(),
             drift_user.clone(),
             drift_user_stats.clone(),
-            vault.clone(),
+            vault_account.clone(),
             drift_spot_market_vault.clone(),
             vault_token_account.clone(),
             token_program.clone(),
@@ -265,13 +269,4 @@ pub fn deposit(
     )?;
 
     Ok(())
-}
-
-fn trim_trailing_zeros(input: &[u8]) -> &[u8] {
-    let end = input.iter().position(|&x| x == 0).unwrap_or(input.len());
-    &input[..end]
-}
-
-fn load_maps(slot: u64, writable_spot_market_index: Option<u16>, has_vault_protocol: bool) {
-    //https://github.com/drift-labs/drift-vaults/blob/827b6746c327e620a784a4163c9453c2176f7b72/programs/drift_vaults/src/state/account_maps.rs#L19
 }

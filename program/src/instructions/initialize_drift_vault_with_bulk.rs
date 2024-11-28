@@ -120,12 +120,11 @@ pub fn initialize_drift_vault_with_bulk(
 
     data.management_fee = management_fee;
 
-    if !management_fee < percentage_precision {
+    if !profit_share < percentage_precision as u32 {
         msg!("profit share must be < 100%");
         return Err(VaultError::InvalidVaultInitialization.into());
     }
     data.profit_share = profit_share;
-
     data.bump = vault_bump_seed;
     data.permissioned = permissioned;
 
