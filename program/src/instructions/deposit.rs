@@ -1,6 +1,11 @@
+use std::collections::BTreeSet;
+
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::VaultError;
 use crate::state::{vault_depositor, Vault, VaultDepositor};
+use drift::instructions::optional_accounts::load_maps;
+use drift::state::spot_market;
+use drift::state::spot_market_map::get_writable_spot_market_set;
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{
@@ -10,12 +15,13 @@ use solana_program::{
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvar::{clock::Clock, Sysvar},
 };
 use spl_token::instruction;
 
-pub fn deposit(
+pub fn deposit<'info>(
     program_id: &Pubkey,
-    accounts: &[AccountInfo],
+    accounts: &'info [AccountInfo<'info>],
     name: String,
     mut amount: u64,
 ) -> ProgramResult {
@@ -23,28 +29,30 @@ pub fn deposit(
     msg!("name: {}", name);
     msg!("amount: {}", amount);
 
-    let account_info_iter = &mut accounts.iter();
+    let clock = &Clock::get()?;
 
-    let vault_account = next_account_info(account_info_iter)?;
-    let vault_depositor_account = next_account_info(account_info_iter)?;
-    let authority = next_account_info(account_info_iter)?;
-    let treasury = next_account_info(account_info_iter)?;
+    let mut iter = accounts.iter();
 
-    let drift_program = next_account_info(account_info_iter)?;
-    let drift_user = next_account_info(account_info_iter)?;
-    let drift_user_stats = next_account_info(account_info_iter)?;
-    let drift_state = next_account_info(account_info_iter)?;
-    let drift_spot_market_vault = next_account_info(account_info_iter)?;
-    let drift_oracle = next_account_info(account_info_iter)?;
-    let drift_spot_market = next_account_info(account_info_iter)?;
+    let vault_account = next_account_info(&mut iter)?;
+    let vault_depositor_account = next_account_info(&mut iter)?;
+    let authority = next_account_info(&mut iter)?;
+    let treasury = next_account_info(&mut iter)?;
 
-    let user_token_account = next_account_info(account_info_iter)?;
-    let vault_token_account = next_account_info(account_info_iter)?;
-    let treasury_token_account = next_account_info(account_info_iter)?;
-    let mint = next_account_info(account_info_iter)?;
+    let drift_program = next_account_info(&mut iter)?;
+    let drift_user = next_account_info(&mut iter)?;
+    let drift_user_stats = next_account_info(&mut iter)?;
+    let drift_state = next_account_info(&mut iter)?;
+    let drift_spot_market_vault = next_account_info(&mut iter)?;
+    let drift_oracle = next_account_info(&mut iter)?;
+    let drift_spot_market = next_account_info(&mut iter)?;
 
-    let token_program = next_account_info(account_info_iter)?;
-    let system_program = next_account_info(account_info_iter)?;
+    let user_token_account = next_account_info(&mut iter)?;
+    let vault_token_account = next_account_info(&mut iter)?;
+    let treasury_token_account = next_account_info(&mut iter)?;
+    let mint = next_account_info(&mut iter)?;
+
+    let token_program = next_account_info(&mut iter)?;
+    let system_program = next_account_info(&mut iter)?;
 
     // First batch - Main accounts
     msg!("vault: {}", vault_account.key);
@@ -107,6 +115,26 @@ pub fn deposit(
     msg!("Profit Share: {:?}", vault.profit_share);
     msg!("Bump: {:?}", vault.bump);
     msg!("Permissioned: {:?}", vault.permissioned);
+
+   let drift_spot_market = &accounts[8];
+
+    // Create iterator with proper lifetime
+    let spot_markets = std::slice::from_ref(drift_spot_market);
+    let mut remaining_accounts_iter = spot_markets.iter().peekable();
+
+    // Get writable spot market set
+    let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
+
+    // Load maps with proper account references and types
+    let account_maps = load_maps(
+        &mut remaining_accounts_iter,
+        &BTreeSet::new(),
+        &writable_spot_market_set,
+        clock.slot,
+        None,
+    );
+    // let vault_equity =
+    //     vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
 
     msg!("Getting Vault Depositor");
     let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
