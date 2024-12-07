@@ -224,6 +224,6 @@ app.listen(PORT, async () => {
 
     //await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000, ORACLE_USDC, SPOT_MARKET_VAULT_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 10000, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC,  ORACLE_USDC, USDC_MINT_LOCAL);
 });
 

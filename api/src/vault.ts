@@ -506,7 +506,7 @@ export async function deposit(
     console.log("Vault Depositor is:", vault.toBase58());
 
     const [treasury] = PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from([98, 117, 108, 107, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])],
+        [Buffer.from("treasury"), Buffer.from(vault_name)],
         programId
     );
 

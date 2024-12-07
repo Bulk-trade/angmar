@@ -15,7 +15,7 @@
 # cargo update -p anchor-lang@0.30.0 --precise 0.29.0
 
 # Build the Solana program
-cargo build-sbf --tools-version v1.39  
+cargo build-sbf --tools-version v1.41  
 
 # Check if the build was successful
 if [ $? -eq 0 ]; then

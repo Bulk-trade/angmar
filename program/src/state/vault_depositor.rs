@@ -1,8 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, program_pack::Sealed, pubkey::Pubkey};
 
-use super::Vault;
-
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct VaultDepositor {
     /// The vault deposited into
@@ -38,7 +36,7 @@ impl VaultDepositor {
     }
 
     pub fn save(vault_depositor: VaultDepositor, account: &AccountInfo) {
-        vault_depositor.serialize(&mut &mut account.data.borrow_mut()[..]);
+        let _ = vault_depositor.serialize(&mut &mut account.data.borrow_mut()[..]);
     }
 
     //  pub fn deposit(

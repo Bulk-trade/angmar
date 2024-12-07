@@ -1,11 +1,14 @@
 use std::collections::BTreeSet;
 
+use crate::common::{
+    bytes32_to_string, deserialize_zero_copy, drift_user_loader, PERCENTAGE_PRECISION,
+};
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::VaultError;
-use crate::state::{vault_depositor, Vault, VaultDepositor};
-use drift::instructions::optional_accounts::load_maps;
-use drift::state::spot_market;
+use crate::state::{Vault, VaultDepositor};
+use drift::instructions::optional_accounts::{load_maps, AccountMaps};
 use drift::state::spot_market_map::get_writable_spot_market_set;
+use drift::state::user::User;
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_program::program::invoke;
 use solana_program::{
@@ -116,7 +119,7 @@ pub fn deposit<'info>(
     msg!("Bump: {:?}", vault.bump);
     msg!("Permissioned: {:?}", vault.permissioned);
 
-   let drift_spot_market = &accounts[8];
+    let drift_spot_market = &accounts[8];
 
     // Create iterator with proper lifetime
     let spot_markets = std::slice::from_ref(drift_spot_market);
@@ -126,18 +129,37 @@ pub fn deposit<'info>(
     let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
     // Load maps with proper account references and types
-    let account_maps = load_maps(
+    let AccountMaps {
+        perp_market_map,
+        spot_market_map,
+        mut oracle_map,
+    } = match load_maps(
         &mut remaining_accounts_iter,
         &BTreeSet::new(),
         &writable_spot_market_set,
         clock.slot,
         None,
-    );
-    // let vault_equity =
-    //     vault.calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)?;
+    ) {
+        Ok(maps) => maps,
+        Err(e) => return Err(ProgramError::Custom(e as u32)),
+    };
+
+    // User details
+    let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
+    msg!("User Details:");
+    msg!("  Authority: {}", user.authority);
+    msg!("  Name: {}", bytes32_to_string(user.name));
+
+    let vault_equity = vault
+        .calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
+        .map_err(|e| ProgramError::Custom(e as u32))?;
+
+    msg!("vault_equity: {:?}", vault_equity);
 
     msg!("Getting Vault Depositor");
     let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
+
+    msg!("Vault Depositor Pubkey: {:?}", vault_depositor.pubkey);
 
     if amount < vault.min_deposit_amount {
         msg!("Deposit can't be less then {}", vault.min_deposit_amount);
@@ -145,7 +167,7 @@ pub fn deposit<'info>(
     }
 
     let vault_fee = vault.management_fee;
-    let fees = (amount * vault_fee + 99) / 100;
+    let fees = (amount * vault_fee + 99) / PERCENTAGE_PRECISION;
     amount -= fees;
 
     msg!("Fees: {}", fees);
