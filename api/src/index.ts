@@ -67,14 +67,15 @@ app.post('/initDrift', async (req, res) => {
 
 app.post('/deposit-usdc', async (req, res) => {
     try {
-        const { vault_id, user_pubkey, amount } = req.body;
+        const { vault_name, user_pubkey, amount } = req.body;
         const signer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY_USER || ''));
 
         console.log("before deposit");
         const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());
         console.log(usdcBalance);
 
-        await deposit(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT);
+
+        await deposit(connection, signer, BULK_PROGRAM_ID, vault_name, 10000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT);
 
         console.log("after deposit")
         const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT.toString());

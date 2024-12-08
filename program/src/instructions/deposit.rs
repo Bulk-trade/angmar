@@ -1,8 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::common::{
-    bytes32_to_string, deserialize_zero_copy, drift_user_loader, PERCENTAGE_PRECISION,
-};
+use crate::common::{bytes32_to_string, deserialize_zero_copy, PERCENTAGE_PRECISION};
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::VaultError;
 use crate::state::{Vault, VaultDepositor};
@@ -21,6 +19,7 @@ use solana_program::{
     sysvar::{clock::Clock, Sysvar},
 };
 use spl_token::instruction;
+use std::slice;
 
 pub fn deposit<'info>(
     program_id: &Pubkey,
@@ -119,43 +118,49 @@ pub fn deposit<'info>(
     msg!("Bump: {:?}", vault.bump);
     msg!("Permissioned: {:?}", vault.permissioned);
 
-    let drift_spot_market = &accounts[8];
+    {
+        // Create array of references to input accounts
+        //let spot_markets = slice::from_ref(drift_oracle);
+        // Directly slice the necessary multiple accounts example  &mut accounts[8..10].iter().peekable()
+        //let mut remaining_accounts_iter = spot_markets.iter().peekable();
+        let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
-    // Create iterator with proper lifetime
-    let spot_markets = std::slice::from_ref(drift_spot_market);
-    let mut remaining_accounts_iter = spot_markets.iter().peekable();
+        // Load maps with proper account references and types
+        let AccountMaps {
+            perp_market_map,
+            spot_market_map,
+            mut oracle_map,
+        } = match load_maps(
+            &mut accounts[9..11].iter().peekable(),
+            &BTreeSet::new(),
+            &writable_spot_market_set,
+            clock.slot,
+            None,
+        ) {
+            Ok(maps) => maps,
+            Err(e) => return Err(ProgramError::Custom(e as u32)),
+        };
 
-    // Get writable spot market set
-    let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
+        msg!("  oracle_map: {}", oracle_map.slot);
+        // msg!("  perp_market_map: {}", perp_market_map.);
+        // Print spot market map details with error handling
+        let spot_market = spot_market_map
+            .get_ref(&vault.spot_market_index)
+            .map_err(|e| ProgramError::Custom(e as u32))?;
+        msg!("  spot_market_map: {}", spot_market.get_precision());
 
-    // Load maps with proper account references and types
-    let AccountMaps {
-        perp_market_map,
-        spot_market_map,
-        mut oracle_map,
-    } = match load_maps(
-        &mut remaining_accounts_iter,
-        &BTreeSet::new(),
-        &writable_spot_market_set,
-        clock.slot,
-        None,
-    ) {
-        Ok(maps) => maps,
-        Err(e) => return Err(ProgramError::Custom(e as u32)),
-    };
+        // User details
+        let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
+        msg!("User Details:");
+        msg!("  Authority: {}", user.authority);
+        msg!("  Name: {}", bytes32_to_string(user.name));
 
-    // User details
-    let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
-    msg!("User Details:");
-    msg!("  Authority: {}", user.authority);
-    msg!("  Name: {}", bytes32_to_string(user.name));
+        let vault_equity = vault
+            .calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
+            .map_err(|e| ProgramError::Custom(e as u32))?;
 
-    let vault_equity = vault
-        .calculate_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
-        .map_err(|e| ProgramError::Custom(e as u32))?;
-
-    msg!("vault_equity: {:?}", vault_equity);
-
+        msg!("vault_equity: {:?}", vault_equity);
+    }
     msg!("Getting Vault Depositor");
     let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 

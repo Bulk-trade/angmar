@@ -12,7 +12,7 @@ import { depositInstuctionLayout, initVaultInstuctionLayout, vaultInstructionLay
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
-        units: 400_000,
+        units: 4_000_000,
     });
 
 const computePriceInstruction =
@@ -466,8 +466,8 @@ export async function deposit(
     programId: PublicKey,
     vault_name: string,
     amount: number,
-    spotMarket: PublicKey,
     spotMarketVault: PublicKey,
+    spotMarket: PublicKey,
     oracle: PublicKey,
     mint: PublicKey,
 ) {

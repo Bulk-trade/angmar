@@ -202,6 +202,7 @@ app.post('/updateUserInfo', async (req, res) => {
 const PORT = process.env.PORT || 4001;
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Restart cmd: cd api && PROGRAM_ID=${BULK_PROGRAM_ID.toString()} npm run local`);
     console.log(`BULK Vault Program Id: ${BULK_PROGRAM_ID.toString()}`);
 
     const admin = await initializeKeypair(connection, {
@@ -220,10 +221,10 @@ app.listen(PORT, async () => {
     console.log('Admin SIGNER', admin.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    //await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, false);
+    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, false);
 
-    //await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+    // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 10000, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC,  ORACLE_USDC, USDC_MINT_LOCAL);
+    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 10000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 });
 

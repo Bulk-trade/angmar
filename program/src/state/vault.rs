@@ -108,7 +108,7 @@ impl Vault {
         spot_market_map: &SpotMarketMap,
         oracle_map: &mut OracleMap,
     ) -> std::result::Result<u64, ErrorCode> {
-        let (vault_equity, all_oracles_valid) =
+        let (vault_equity, _all_oracles_valid) =
             calculate_user_equity(user, perp_market_map, spot_market_map, oracle_map)?;
 
         // validate!(
