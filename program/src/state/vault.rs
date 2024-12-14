@@ -12,6 +12,8 @@ use solana_program::borsh0_10::try_from_slice_unchecked;
 use solana_program::program_pack::Sealed;
 use solana_program::pubkey::Pubkey;
 
+use crate::constants::PERCENTAGE_PRECISION;
+
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vault {
     /// The name of the vault. Vault pubkey is derived from this name.
@@ -37,11 +39,10 @@ pub struct Vault {
     /// The manager deposits are total_shares - user_shares - protocol_profit_and_fee_shares.
     pub total_shares: u128,
     /// Last fee update unix timestamp
-    pub last_fee_update_ts: i64,
+    pub last_fee_update_ts: u64,
     /// When the liquidation starts
-    pub liquidation_start_ts: i64,
+    pub liquidation_start_ts: u64,
     /// The period (in seconds) that a vault depositor must wait after requesting a withdrawal to finalize withdrawal.
-    /// Currently, the maximum is 90 days.
     pub redeem_period: u64,
     /// The sum of all outstanding withdraw requests
     pub total_withdraw_requested: u64,
@@ -55,7 +56,7 @@ pub struct Vault {
     /// The net deposits for the vault
     pub net_deposits: u64,
     /// The net deposits for the manager
-    pub manager_net_deposits: i64,
+    pub manager_net_deposits: u64,
     /// Total deposits
     pub total_deposits: u64,
     /// Total withdraws
@@ -65,7 +66,7 @@ pub struct Vault {
     /// Total withdraws for the manager
     pub manager_total_withdraws: u64,
     /// Total management fee accrued by the manager
-    pub manager_total_fee: i64,
+    pub manager_total_fee: u64,
     /// Total profit share accrued by the manager
     pub manager_total_profit_share: u64,
     /// The minimum deposit amount
@@ -82,15 +83,13 @@ pub struct Vault {
     pub bump: u8,
     /// Whether anybody can be a depositor
     pub permissioned: bool,
-    /// The optional [`VaultProtocol`] account.
-    pub vault_protocol: bool,
 }
 
 impl Sealed for Vault {}
 
 impl Vault {
-    pub fn get_vault_signer_seeds<'a>(name: &'a [u8], bump: &'a u8) -> [&'a [u8]; 3] {
-        [b"vault".as_ref(), name, bytemuck::bytes_of(bump)]
+    pub fn get_pda<'a>(name: &String, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"vault", name.as_bytes()], program_id)
     }
 
     pub fn get(account: &AccountInfo) -> Self {
@@ -101,7 +100,7 @@ impl Vault {
         let _ = vault.serialize(&mut &mut account.data.borrow_mut()[..]);
     }
 
-    pub fn calculate_equity(
+    pub fn calculate_total_equity(
         &self,
         user: &User,
         perp_market_map: &PerpMarketMap,
@@ -133,5 +132,12 @@ impl Vault {
             .safe_mul(spot_market_precision)?
             .safe_div(oracle_price)?
             .cast::<u64>()?)
+    }
+
+    pub fn calculate_fees(amount: u64, management_fee: u64) -> u64 {
+        let numerator = amount
+            .checked_mul(management_fee)
+            .expect("Fee calculation overflow");
+        (numerator + PERCENTAGE_PRECISION - 1) / PERCENTAGE_PRECISION
     }
 }

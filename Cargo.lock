@@ -2791,6 +2791,7 @@ dependencies = [
  "bytemuck",
  "drift",
  "serde",
+ "serde_json",
  "solana-program",
  "spl-token 3.5.0",
  "static_assertions",

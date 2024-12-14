@@ -10,9 +10,12 @@ pub enum VaultInstruction {
     },
     InitializeDriftWithBulk {
         name: String,
+        redeem_period: u64,
+        max_tokens: u64,
         management_fee: u64,
         min_deposit_amount: u64,
         profit_share: u32,
+        hurdle_rate: u32,
         spot_market_index: u16,
         permissioned: bool,
     },
@@ -61,9 +64,12 @@ struct BaseVaultPayload {
 #[derive(BorshDeserialize)]
 struct InitVaultPayload {
     name: String,
+    redeem_period: u64,
+    max_tokens: u64,
     management_fee: u64,
     min_deposit_amount: u64,
     profit_share: u32,
+    hurdle_rate: u32,
     spot_market_index: u16,
     permissioned: bool,
 }
@@ -124,17 +130,20 @@ impl VaultInstruction {
                 let payload = InitVaultPayload::try_from_slice(rest).unwrap();
                 Self::InitializeDriftWithBulk {
                     name: payload.name,
+                    redeem_period: payload.redeem_period,
+                    max_tokens: payload.max_tokens,
                     management_fee: payload.management_fee,
                     min_deposit_amount: payload.min_deposit_amount,
                     profit_share: payload.profit_share,
+                    hurdle_rate: payload.hurdle_rate,
                     spot_market_index: payload.spot_market_index,
                     permissioned: payload.permissioned,
                 }
             }
             6 => Self::InitializeVaultDepositor {},
             7 => {
-                 let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-                   Self::DepositOld {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::DepositOld {
                     vault_id: payload.vault_id,
                     user_pubkey: payload.user_pubkey,
                     amount: payload.amount,

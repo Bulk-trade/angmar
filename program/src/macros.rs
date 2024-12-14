@@ -1,22 +1,23 @@
 #[macro_export]
 macro_rules! validate {
-        ($assert:expr, $err:expr) => {{
-            if ($assert) {
-                Ok(())
-            } else {
-                let error_code: ErrorCode = $err;
-                msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
-                Err(error_code)
-            }
-        }};
-        ($assert:expr, $err:expr, $($arg:tt)+) => {{
+    ($assert:expr, $err:expr) => {{
         if ($assert) {
-            Ok(())
+             Ok::<(), ProgramError>(())
         } else {
-            let error_code: ErrorCode = $err;
-            msg!("Error {} thrown at {}:{}", error_code, file!(), line!());
+            let error = $err;
+            msg!("Error {} thrown at {}:{}", error, file!(), line!());
+            Err(error.into())
+        }
+    }};
+    
+    ($assert:expr, $err:expr, $($arg:tt)+) => {{
+        if ($assert) {
+             Ok::<(), ProgramError>(())
+        } else {
+            let error = $err;
+            msg!("Error {} thrown at {}:{}", error, file!(), line!());
             msg!($($arg)*);
-            Err(error_code)
+            Err(error.into())
         }
     }};
 }

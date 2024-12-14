@@ -1,5 +1,13 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, program_pack::Sealed, pubkey::Pubkey};
+use solana_program::{
+    account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, program_error::ProgramError,
+    program_pack::Sealed, pubkey::Pubkey,
+};
+
+use crate::{
+    constants::{DECIMALS_SHARES, DECIMALS_USDC},
+    error::ErrorCode,
+};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct VaultDepositor {
@@ -11,16 +19,18 @@ pub struct VaultDepositor {
     pub authority: Pubkey,
     /// share of vault owned by this depositor. vault_shares / vault.total_shares is depositor's ownership of vault_equity
     pub vault_shares: u128,
+    /// Timestamp vault depositor initialized
+    pub init_ts: u64,
     /// creation ts of vault depositor
-    pub last_valid_ts:u64,
+    pub last_valid_ts: u64,
     /// lifetime net deposits of vault depositor for the vault
-    pub net_deposits:u64,
+    pub net_deposits: u64,
     /// lifetime total deposits
     pub total_deposits: u64,
     /// lifetime total withdraws
     pub total_withdraws: u64,
     /// the token amount of gains the vault depositor has paid performance fees on
-    pub cumulative_profit_share_amount:u64,
+    pub cumulative_profit_share_amount: u64,
     pub profit_share_fee_paid: u64,
     /// the exponent for vault_shares decimal places
     pub vault_shares_base: u32,
@@ -31,130 +41,47 @@ pub struct VaultDepositor {
 impl Sealed for VaultDepositor {}
 
 impl VaultDepositor {
+    pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"vault_depositor", vault.as_ref(), authority.as_ref()],
+            program_id,
+        )
+    }
+
     pub fn get(account: &AccountInfo) -> Self {
         try_from_slice_unchecked::<VaultDepositor>(&account.data.borrow()).unwrap()
     }
 
-    pub fn save(vault_depositor: VaultDepositor, account: &AccountInfo) {
+    pub fn save(vault_depositor: &VaultDepositor, account: &AccountInfo) {
         let _ = vault_depositor.serialize(&mut &mut account.data.borrow_mut()[..]);
     }
 
-    //  pub fn deposit(
-    //     &mut self,
-    //     amount: u64,
-    //     vault_equity: u64,
-    //     vault: &mut Vault,
-    //     vault_protocol: &mut Option<RefMut<VaultProtocol>>,
-    //     now: i64,
-    // ) -> Result<()> {
-    //     validate!(
-    //         vault.max_tokens == 0 || vault.max_tokens > vault_equity.safe_add(amount)?,
-    //         ErrorCode::VaultIsAtCapacity,
-    //         "after deposit vault equity is {} > {}",
-    //         vault_equity.safe_add(amount)?,
-    //         vault.max_tokens
-    //     )?;
+    pub fn calculate_shares_for_deposit(
+        total_vault_shares: u128,
+        total_value_locked: u128,
+        deposit_usdc: u128,
+    ) -> Result<u128, ProgramError> {
+        if total_vault_shares == 0 {
+            // First deposit case: issue shares equivalent to the deposit amount in 18 decimals
+            return Ok(deposit_usdc * DECIMALS_SHARES / DECIMALS_USDC);
+        }
+        // Calculate shares proportional to NAV (using scaled decimals)
+        let scaled_deposit = deposit_usdc
+            .checked_mul(Self::PRECISION_FACTOR)
+            .ok_or(ErrorCode::Overflow)?;
 
-    //     validate!(
-    //         vault.min_deposit_amount == 0 || amount >= vault.min_deposit_amount,
-    //         ErrorCode::InvalidVaultDeposit,
-    //         "deposit amount {} is below vault min_deposit_amount {}",
-    //         amount,
-    //         vault.min_deposit_amount
-    //     )?;
+        let proportion = scaled_deposit
+            .checked_div(total_value_locked)
+            .ok_or(ErrorCode::Overflow)?;
 
-    //     validate!(
-    //         !(vault_equity == 0 && vault.total_shares != 0),
-    //         ErrorCode::InvalidVaultForNewDepositors,
-    //         "Vault balance should be non-zero for new depositors to enter"
-    //     )?;
+        let shares = proportion
+            .checked_mul(total_vault_shares)
+            .ok_or(ErrorCode::Overflow)?
+            .checked_div(Self::PRECISION_FACTOR)
+            .ok_or(ErrorCode::Overflow)?;
 
-    //     validate!(
-    //         !self.last_withdraw_request.pending(),
-    //         ErrorCode::WithdrawInProgress,
-    //         "withdraw request is in progress"
-    //     )?;
+        Ok(shares)
+    }
 
-    //     self.apply_rebase(vault, vault_protocol, vault_equity)?;
-
-    //     let vault_shares_before = self.checked_vault_shares(vault)?;
-    //     let total_vault_shares_before = vault.total_shares;
-    //     let user_vault_shares_before = vault.user_shares;
-    //     let protocol_shares_before = vault.get_protocol_shares(vault_protocol);
-
-    //     let VaultFee {
-    //         management_fee_payment,
-    //         management_fee_shares,
-    //         protocol_fee_payment,
-    //         protocol_fee_shares,
-    //     } = vault.apply_fee(vault_protocol, vault_equity, now)?;
-    //     let (manager_profit_share, protocol_profit_share) =
-    //         self.apply_profit_share(vault_equity, vault, vault_protocol)?;
-
-    //     let n_shares = vault_amount_to_depositor_shares(amount, vault.total_shares, vault_equity)?;
-
-    //     self.total_deposits = self.total_deposits.saturating_add(amount);
-    //     self.net_deposits = self.net_deposits.safe_add(amount.cast()?)?;
-
-    //     vault.total_deposits = vault.total_deposits.saturating_add(amount);
-    //     vault.net_deposits = vault.net_deposits.safe_add(amount.cast()?)?;
-
-    //     self.increase_vault_shares(n_shares, vault)?;
-
-    //     vault.total_shares = vault.total_shares.safe_add(n_shares)?;
-    //     vault.user_shares = vault.user_shares.safe_add(n_shares)?;
-
-    //     let vault_shares_after = self.checked_vault_shares(vault)?;
-    //     let protocol_shares_after = vault.get_protocol_shares(vault_protocol);
-
-    //     match vault_protocol {
-    //         None => {
-    //             emit!(VaultDepositorRecord {
-    //                 ts: now,
-    //                 vault: vault.pubkey,
-    //                 depositor_authority: self.authority,
-    //                 action: VaultDepositorAction::Deposit,
-    //                 amount,
-    //                 spot_market_index: vault.spot_market_index,
-    //                 vault_equity_before: vault_equity,
-    //                 vault_shares_before,
-    //                 user_vault_shares_before,
-    //                 total_vault_shares_before,
-    //                 vault_shares_after,
-    //                 total_vault_shares_after: vault.total_shares,
-    //                 user_vault_shares_after: vault.user_shares,
-    //                 profit_share: manager_profit_share,
-    //                 management_fee: management_fee_payment,
-    //                 management_fee_shares,
-    //             });
-    //         }
-    //         Some(_) => {
-    //             emit!(VaultDepositorV1Record {
-    //                 ts: now,
-    //                 vault: vault.pubkey,
-    //                 depositor_authority: self.authority,
-    //                 action: VaultDepositorAction::Deposit,
-    //                 amount,
-    //                 spot_market_index: vault.spot_market_index,
-    //                 vault_equity_before: vault_equity,
-    //                 vault_shares_before,
-    //                 user_vault_shares_before,
-    //                 total_vault_shares_before,
-    //                 vault_shares_after,
-    //                 total_vault_shares_after: vault.total_shares,
-    //                 user_vault_shares_after: vault.user_shares,
-    //                 protocol_profit_share,
-    //                 protocol_fee: protocol_fee_payment,
-    //                 protocol_fee_shares,
-    //                 manager_profit_share,
-    //                 management_fee: management_fee_payment,
-    //                 management_fee_shares,
-    //                 protocol_shares_before,
-    //                 protocol_shares_after,
-    //             });
-    //         }
-    //     }
-
-    //     Ok(())
-    // }
+    const PRECISION_FACTOR: u128 = 1_000_000; // 6 decimal places for precision
 }

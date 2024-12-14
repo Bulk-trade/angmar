@@ -1,18 +1,16 @@
+use crate::{
+    error::ErrorCode,
+    state::{Vault, VaultDepositor},
+};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
     msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
     system_instruction,
-    sysvar::{rent::Rent, Sysvar},
-};
-use borsh::BorshSerialize;
-use crate::{
-    error::VaultError,
-    state::{Vault, VaultDepositor},
+    sysvar::{clock::Clock, rent::Rent, Sysvar},
 };
 
 pub fn initialize_vault_depositor(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
@@ -20,14 +18,14 @@ pub fn initialize_vault_depositor(program_id: &Pubkey, accounts: &[AccountInfo])
 
     let account_info_iter = &mut accounts.iter();
 
-    let vault = next_account_info(account_info_iter)?;
-    let vault_depositor = next_account_info(account_info_iter)?;
+    let vault_account = next_account_info(account_info_iter)?;
+    let vault_depositor_account = next_account_info(account_info_iter)?;
     let authority = next_account_info(account_info_iter)?;
 
     let system_program = next_account_info(account_info_iter)?;
 
-    msg!("Vault: {}", vault.key);
-    msg!("Vault Depositor: {}", vault_depositor.key);
+    msg!("Vault: {}", vault_account.key);
+    msg!("Vault Depositor: {}", vault_depositor_account.key);
     msg!("Authority: {}", authority.key);
     msg!("System Program: {}", system_program.key);
 
@@ -36,20 +34,24 @@ pub fn initialize_vault_depositor(program_id: &Pubkey, accounts: &[AccountInfo])
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let (vault_depositor_pda, vault_depositor_bump_seed) = Pubkey::find_program_address(
-        &[
-            b"vault_depositor",
-            vault.key.as_ref(),
-            authority.key.as_ref(),
-        ],
-        program_id,
-    );
+    let (vault_depositor_pda, vault_depositor_bump_seed) =
+        VaultDepositor::get_pda(vault_account.key, authority.key, program_id);
 
-    if vault_depositor_pda != *vault_depositor.key {
+    if vault_depositor_pda != *vault_depositor_account.key {
         msg!("Invalid seeds for Vault Depositor PDA");
         return Err(ProgramError::InvalidArgument);
     }
 
+    // Verify vault permissions
+    let vault = Vault::get(vault_account);
+    if vault.permissioned {
+        if vault.manager != *authority.key {
+            msg!("Vault depositor can only be created by vault manager");
+            return Err(ErrorCode::PermissionedVault.into());
+        }
+    }
+
+    //Create depositor pda
     let account_len: usize = 1000;
 
     let rent = Rent::get()?;
@@ -58,19 +60,19 @@ pub fn initialize_vault_depositor(program_id: &Pubkey, accounts: &[AccountInfo])
     invoke_signed(
         &system_instruction::create_account(
             authority.key,
-            vault_depositor.key,
+            vault_depositor_account.key,
             rent_lamports,
             account_len.try_into().unwrap(),
             program_id,
         ),
         &[
             authority.clone(),
-            vault_depositor.clone(),
+            vault_depositor_account.clone(),
             system_program.clone(),
         ],
         &[&[
             b"vault_depositor",
-            vault.key.as_ref(),
+            vault_account.key.as_ref(),
             authority.key.as_ref(),
             &[vault_depositor_bump_seed],
         ]],
@@ -78,47 +80,17 @@ pub fn initialize_vault_depositor(program_id: &Pubkey, accounts: &[AccountInfo])
 
     msg!("Vault Depositor created: {}", vault_depositor_pda);
 
-    let mut data =
-        try_from_slice_unchecked::<VaultDepositor>(&vault_depositor.data.borrow()).unwrap();
-    msg!("borrowed new account data");
+    // Initialize vault depositor data
+    let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 
-    data.vault = *vault.key;
-    data.pubkey = *vault_depositor.key;
-    data.authority = *authority.key;
+    vault_depositor.vault = *vault_account.key;
+    vault_depositor.pubkey = *vault_depositor_account.key;
+    vault_depositor.authority = *authority.key;
+    vault_depositor.init_ts = Clock::get()?.unix_timestamp as u64;
 
-    msg!("Vault: {:?}", data.vault);
-    msg!("Pubkey: {:?}", data.pubkey);
-    msg!("Authority: {:?}", data.authority);
+    // Save vault depositor state
+    VaultDepositor::save(&vault_depositor, vault_depositor_account);
 
-    msg!("unpacking vault state account");
-    let vault_data = try_from_slice_unchecked::<Vault>(&vault.data.borrow())?;
-
-    // Print the specified fields from vault_data
-    msg!("Name: {:?}", vault_data.name);
-    msg!("Pubkey: {:?}", vault_data.pubkey);
-    msg!("Manager: {:?}", vault_data.manager);
-    msg!("User Stats: {:?}", vault_data.user_stats);
-    msg!("User: {:?}", vault_data.user);
-    msg!("Token Account: {:?}", vault_data.token_account);
-    msg!("Spot Market Index: {:?}", vault_data.spot_market_index);
-    msg!("Init Timestamp: {:?}", vault_data.init_ts);
-    msg!("Min Deposit Amount: {:?}", vault_data.min_deposit_amount);
-    msg!("Management Fee: {:?}", vault_data.management_fee);
-    msg!("Profit Share: {:?}", vault_data.profit_share);
-    msg!("Bump: {:?}", vault_data.bump);
-    msg!("Permissioned: {:?}", vault_data.permissioned);
-
-    if vault_data.permissioned {
-        if vault_data.manager != *authority.key {
-            msg!("Vault depositor can only be created by vault manager");
-            return Err(VaultError::PermissionedVault.into());
-        }
-    }
-
-    // Serialize and save the data back to the account
-    msg!("serializing account");
-    data.serialize(&mut &mut vault_depositor.data.borrow_mut()[..])?;
-    msg!("state account serialized");
-
+    msg!("Successfully initialized vault depositor");
     Ok(())
 }

@@ -15,9 +15,12 @@ export const vaultInstructionLayout = struct([
 export const initVaultInstuctionLayout = struct([
     u8("variant"),
     str("name"),
+    u64("redeem_period"),
+    u64("max_tokens"),
     u64("management_fee"),
     u64("min_deposit_amount"),
     u32("profit_share"),
+    u32("hurdle_rate"),
     u16("spot_market_index"),
     bool("permissioned"),
 ]);

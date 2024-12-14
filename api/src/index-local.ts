@@ -86,7 +86,7 @@ app.post('/init-drift-bulk', async (req, res) => {
 
         console.log(`Signer: ${manager.publicKey}`)
 
-        await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, name, USDC_MINT_LOCAL, false);
+        await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 5 * 60, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
         res.status(200).send('Initialized Vault with bulk successfully');
     } catch (error) {
         console.error(error);
@@ -216,15 +216,15 @@ app.listen(PORT, async () => {
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    const vault_name = 'bulk';
+    const vault_name = 'bulk2';
 
     console.log('Admin SIGNER', admin.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, vault_name, USDC_MINT_LOCAL, false);
+//    await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 5 * 60, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
-    // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+//    await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 10000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 });
 

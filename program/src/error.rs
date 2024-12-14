@@ -2,7 +2,7 @@ use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum VaultError {
+pub enum ErrorCode {
     #[error("Account not initialized yet")]
     UninitializedAccount,
 
@@ -20,10 +20,19 @@ pub enum VaultError {
 
     #[error("PermissionedVault")]
     PermissionedVault,
+
+    #[error("VaultIsAtCapacity")]
+    VaultIsAtCapacity,
+
+    #[error("Overflow")]
+    Overflow,
+
+    #[error("InvalidVaultDeposit")]
+    InvalidVaultDeposit,
 }
 
-impl From<VaultError> for ProgramError {
-    fn from(e: VaultError) -> Self {
+impl From<ErrorCode> for ProgramError {
+    fn from(e: ErrorCode) -> Self {
         ProgramError::Custom(e as u32)
     }
 }

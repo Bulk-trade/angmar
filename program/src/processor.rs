@@ -1,7 +1,7 @@
 use crate::instruction::VaultInstruction;
 use crate::instructions::{
     deposit, deposit_old, initialize_drift, initialize_drift_vault_with_bulk, initialize_vault,
-    initialize_vault_depositor, update_delegate, withdraw,
+    initialize_vault_depositor, update_delegate, withdraw, VaultParams,
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -14,21 +14,31 @@ pub fn process_instruction<'a>(
     match instruction {
         VaultInstruction::InitializeDriftWithBulk {
             name,
+            redeem_period,
+            max_tokens,
             management_fee,
             min_deposit_amount,
             profit_share,
+            hurdle_rate,
             spot_market_index,
             permissioned,
-        } => initialize_drift_vault_with_bulk(
-            program_id,
-            accounts,
-            name,
-            management_fee,
-            min_deposit_amount,
-            profit_share,
-            spot_market_index,
-            permissioned,
-        ),
+        } => {
+            initialize_drift_vault_with_bulk(
+                program_id,
+                accounts,
+                &VaultParams {
+                    name,
+                    redeem_period,
+                    max_tokens,
+                    management_fee,
+                    min_deposit_amount,
+                    profit_share,
+                    hurdle_rate,
+                    spot_market_index,
+                    permissioned,
+                },
+            )
+        }
         VaultInstruction::InitializeVaultDepositor {} => {
             initialize_vault_depositor(program_id, accounts)
         }

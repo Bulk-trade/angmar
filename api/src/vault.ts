@@ -245,9 +245,16 @@ export async function initializeDriftWithBulk(
     connection: Connection,
     manager: Keypair,
     programId: PublicKey,
-    vault_name: string,
     mint: PublicKey,
-    permissioned: boolean
+    vault_name: string,
+    redeem_period: number,
+    max_tokens: number,
+    management_fee: number,
+    min_deposit_amount: number,
+    profit_share: number,
+    hurdle_rate: number,
+    spot_market_index: number,
+    permissioned: boolean,
 ) {
 
     // Log the input parameters
@@ -255,21 +262,24 @@ export async function initializeDriftWithBulk(
 
     let buffer = Buffer.alloc(1000);
     const name = vault_name.slice(0, 32); // Truncate to 32 bytes
-
-    const management_fee = new BN(100000);
-
-    const min_deposit_amount = new BN(1000);
-
-    const profit_share = new BN(100000);
+    const management_fee_bn = new BN(management_fee);
+    const min_deposit_amount_bn = new BN(min_deposit_amount);
+    const profit_share_bn = new BN(profit_share);
+    const redeem_period_bn = new BN(redeem_period);
+    const max_tokens_bn = new BN(max_tokens);
+    const hurdle_rate_bn = new BN(hurdle_rate);
 
     initVaultInstuctionLayout.encode(
         {
             variant: 5,
             name,
-            management_fee,
-            min_deposit_amount,
-            profit_share,
-            spot_market_index: 0,
+            redeem_period: redeem_period_bn,
+            max_tokens: max_tokens_bn,
+            management_fee: management_fee_bn,
+            min_deposit_amount: min_deposit_amount_bn,
+            profit_share: profit_share_bn,
+            hurdle_rate: hurdle_rate_bn,
+            spot_market_index,
             permissioned,
         },
         buffer
@@ -300,6 +310,14 @@ export async function initializeDriftWithBulk(
         true
     )).address;
 
+    const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        manager,
+        mint,
+        treasury,
+        true
+    )).address;
+
     const driftKeys = await getInitializeDriftKeys(manager.publicKey, programId, vault);
 
     const keys: AccountMeta[] = [
@@ -320,6 +338,11 @@ export async function initializeDriftWithBulk(
         },
         {
             pubkey: treasury,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: treasuryTokenAccount,
             isSigner: false,
             isWritable: true,
         },

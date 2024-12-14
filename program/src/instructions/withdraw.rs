@@ -1,5 +1,5 @@
 use crate::drift::{WithdrawIxArgs, WithdrawIxData};
-use crate::error::VaultError;
+use crate::error::ErrorCode;
 use crate::state::UserInfoAccountState;
 use borsh::BorshSerialize;
 use solana_program::instruction::{AccountMeta, Instruction};
@@ -77,7 +77,7 @@ pub fn withdraw(
         1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
     if total_len > 1000 {
         msg!("Data length is larger than 1000 bytes");
-        return Err(VaultError::InvalidDataLength.into());
+        return Err(ErrorCode::InvalidDataLength.into());
     }
 
     msg!("checking if user account is initialized");
@@ -130,7 +130,7 @@ pub fn withdraw(
             msg!("Error unpacking account data: {:?}", e);
             msg!("Account is not initialized");
 
-            return Err(VaultError::UninitializedAccount.into());
+            return Err(ErrorCode::UninitializedAccount.into());
         }
     };
 
