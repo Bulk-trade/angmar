@@ -1,14 +1,12 @@
-use crate::common::{bytes32_to_string, deserialize_zero_copy, log_accounts, log_params};
+use crate::common::{bytes32_to_string, deserialize_zero_copy, log_accounts, log_data, log_params};
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::ErrorCode;
 use crate::state::{Vault, VaultDepositor, VaultDepositorAction, VaultDepositorRecord};
 use crate::validate;
-use borsh::BorshSerialize;
 use drift::instructions::optional_accounts::{load_maps, AccountMaps};
 use drift::state::spot_market_map::get_writable_spot_market_set;
 use drift::state::user::User;
 use solana_program::instruction::{AccountMeta, Instruction};
-use solana_program::log::sol_log_data;
 use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -213,10 +211,11 @@ pub fn deposit<'info>(
         management_fee: fees,
         management_fee_shares: vault.management_fee,
     };
-    sol_log_data(&[&record.try_to_vec()?]);
+
+    log_data(&record)?;
 
     log_params(&record);
-    
+
     transfer_fees(
         fees,
         token_program,
