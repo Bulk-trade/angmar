@@ -96,8 +96,8 @@ impl Vault {
         try_from_slice_unchecked::<Vault>(&account.data.borrow()).unwrap()
     }
 
-    pub fn save(vault: &Vault, account: &AccountInfo) {
-        let _ = vault.serialize(&mut &mut account.data.borrow_mut()[..]);
+    pub fn save(vault: &Vault, vault_account: &AccountInfo) {
+        let _ = vault.serialize(&mut &mut vault_account.data.borrow_mut()[..]);
     }
 
     pub fn calculate_total_equity(

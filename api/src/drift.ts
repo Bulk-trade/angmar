@@ -7,7 +7,7 @@ import {
     Connection,
 } from "@solana/web3.js";
 import { Keypair } from "@solana/web3.js";
-import { getVaultPda } from "./vault";
+import { getVaultPDA } from "./util";
 
 // import { BaseClient, ApiTxOptions } from "./base";
 export const DRIFT_PROGRAM = new PublicKey(DRIFT_PROGRAM_ID);
@@ -92,14 +92,14 @@ export async function getDriftDepositKeys(
     programId: PublicKey,
     userTokenAccount: PublicKey,
     treasuryTokenAccount: PublicKey,
-    vaultId: String,
+    vaultName: string,
     spotMarket: PublicKey,
     spotMarketVault: PublicKey,
     oracle: PublicKey,
     mint: PublicKey
 ): Promise<AccountMeta[]> {
 
-    const vault = getVaultPda(programId, vaultId);
+    const vault = getVaultPDA(vaultName, programId);
     const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 
@@ -186,14 +186,14 @@ export async function getDriftWithdrawKeys(
     programId: PublicKey,
     userTokenAccount: PublicKey,
     treasuryTokenAccount: PublicKey,
-    vaultId: String,
+    vaultName: string,
     spotMarket: PublicKey,
     spotMarketVault: PublicKey,
     oracle: PublicKey,
     mint: PublicKey
 ): Promise<AccountMeta[]> {
 
-    const vault = getVaultPda(programId, vaultId);
+    const vault = getVaultPDA(vaultName, programId);
     const [user, userStats] = getDriftUser(vault);
     const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
 

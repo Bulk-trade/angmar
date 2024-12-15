@@ -1,5 +1,5 @@
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
-import { BotStatus, FundStatus } from "./util";
+import { BotStatus, getTreasuryPDA, getVaultDepositorPDA, getVaultPDA as getVaultPDA, FundStatus } from "./util";
 import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
@@ -8,7 +8,7 @@ import { TransactionMessage } from "@solana/web3.js";
 import { getSignature } from "./utils/get-signature";
 import { handleTransactionResponse } from "./utils/handle-txn";
 import BN from "bn.js";
-import { depositInstuctionLayout, initVaultInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
+import { depositInstuctionLayout, initVaultInstuctionLayout, updateDelegateInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
@@ -514,26 +514,15 @@ export async function deposit(
 
     buffer = buffer.subarray(0, depositInstuctionLayout.getSpan(buffer));
 
-    const [vault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), Buffer.from(vault_name)],
-        programId
-    );
+    const vault = getVaultPDA(vault_name, programId)
 
     console.log("Vault PDA is:", vault.toBase58());
 
-    const [vault_depositor] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault_depositor"), vault.toBuffer(), authority.publicKey.toBuffer()],
-        programId
-    );
+    const vaultDepositor = getVaultDepositorPDA(vault, authority.publicKey, programId);
 
-    console.log("Vault Depositor is:", vault.toBase58());
+    console.log("Vault Depositor is:", vaultDepositor.toBase58());
 
-    const [treasury] = PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_name)],
-        programId
-    );
-
-    console.log(JSON.stringify(Buffer.from(vault_name)))
+    const treasury = getTreasuryPDA(vault_name, programId);
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
@@ -562,7 +551,7 @@ export async function deposit(
             isWritable: true,
         },
         {
-            pubkey: vault_depositor,
+            pubkey: vaultDepositor,
             isSigner: false,
             isWritable: true,
         },
@@ -669,7 +658,7 @@ export async function deposit_old(
 
     console.log("User PDA is:", user_info_pda.toBase58());
 
-    const vault_pda = getVaultPda(programId, vault_id);
+    const vault_pda = getVaultPDA(vault_id, programId);
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
@@ -812,7 +801,7 @@ export async function withdraw(
 
     console.log("User PDA is:", user_info_pda.toBase58());
 
-    const vault_pda = getVaultPda(programId, vault_id);
+    const vault_pda = getVaultPDA(vault_id, programId);
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
@@ -907,38 +896,33 @@ export async function updateDelegate(
     connection: Connection,
     signer: Keypair,
     programId: PublicKey,
-    vault_id: string,
+    vault_name: string,
     delegate: string,
     sub_account: number,
 ) {
 
     // Log the input parameters
-    console.log('Received update delegate parameters:', { vault_id, delegate, sub_account });
+    console.log('Received update delegate parameters:', { vault_name: vault_name, delegate, sub_account });
 
     console.log(new PublicKey(delegate).toString())
     let buffer = Buffer.alloc(1000);
-    const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
-    const delegate_key = delegate.slice(0, 32); // Truncate to 32 bytes
+    const vault_slice = vault_name.slice(0, 32); // Truncate to 32 bytes
+    const delegate_slice = delegate.slice(0, 32); // Truncate to 32 bytes
+    const sub_account_bn = new BN(0);
 
-    const sub_account_bn = new BN(sub_account);
-    vaultInstructionLayout.encode(
+    updateDelegateInstuctionLayout.encode(
         {
             variant: 4,
-            vault_id: vault,
-            user_pubkey: '',
-            amount: sub_account_bn,
-            fund_status: FundStatus.Deposited,
-            bot_status: BotStatus.Init,
-            market_index: 0,
+            name: vault_name,
             delegate: delegate,
-            sub_account: sub_account_bn
+            sub_account: sub_account_bn,
         },
         buffer
     );
 
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+    buffer = buffer.subarray(0, updateDelegateInstuctionLayout.getSpan(buffer));
 
-    const vault_pda = getVaultPda(programId, vault_id);
+    const vault_pda = getVaultPDA(vault_name, programId);
 
     console.log("Vault PDA is:", vault_pda.toBase58());
 
@@ -1060,13 +1044,4 @@ export async function updateUserInfo(
     transaction.add(instruction);
     const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
     console.log(`https://solscan.io//tx/${tx}`);
-}
-
-export function getVaultPda(programId: PublicKey, name: String) {
-    const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), Buffer.from(name)],
-        programId
-    );
-
-    return pda;
 }

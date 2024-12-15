@@ -41,24 +41,20 @@ pub enum VaultInstruction {
         market_index: u16,
     },
     UpdateDelegate {
-        vault_id: String,
+        name: String,
         delegate: String,
         sub_account: u16,
-        fund_status: String,
-        bot_status: String,
     },
 }
 
 #[derive(BorshDeserialize)]
 struct BaseVaultPayload {
-    vault_id: String,
+    name: String,
     user_pubkey: String,
     amount: u64,
     fund_status: String,
     bot_status: String,
     market_index: u16,
-    delegate: String,
-    sub_account: u16,
 }
 
 #[derive(BorshDeserialize)]
@@ -80,18 +76,25 @@ struct DepositPayload {
     amount: u64,
 }
 
+#[derive(BorshDeserialize)]
+struct UpdateDelegatePayload {
+    name: String,
+    delegate: String,
+    sub_account: u16,
+}
+
 impl VaultInstruction {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         let (&variant, rest) = input
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
         Ok(match variant {
-            0 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-                Self::InitializeVault {
-                    vault_id: payload.vault_id,
-                }
-            }
+            // 0 => {
+            //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+            //     Self::InitializeVault {
+            //         vault_id: payload.vault_id,
+            //     }
+            // }
             1 => {
                 let payload = DepositPayload::try_from_slice(rest).unwrap();
                 Self::Deposit {
@@ -99,31 +102,29 @@ impl VaultInstruction {
                     amount: payload.amount,
                 }
             }
-            2 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-                Self::Withdraw {
-                    vault_id: payload.vault_id,
-                    user_pubkey: payload.user_pubkey,
-                    amount: payload.amount,
-                    fund_status: payload.fund_status,
-                    bot_status: payload.bot_status,
-                    market_index: payload.market_index,
-                }
-            }
-            3 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-                Self::InitializeDrift {
-                    vault_id: payload.vault_id,
-                }
-            }
+            // 2 => {
+            //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+            //     Self::Withdraw {
+            //         vault_id: payload.vault_id,
+            //         user_pubkey: payload.user_pubkey,
+            //         amount: payload.amount,
+            //         fund_status: payload.fund_status,
+            //         bot_status: payload.bot_status,
+            //         market_index: payload.market_index,
+            //     }
+            // }
+            // 3 => {
+            //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+            //     Self::InitializeDrift {
+            //         vault_id: payload.vault_id,
+            //     }
+            // }
             4 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                let payload = UpdateDelegatePayload::try_from_slice(rest).unwrap();
                 Self::UpdateDelegate {
-                    vault_id: payload.vault_id,
+                    name: payload.name,
                     delegate: payload.delegate,
                     sub_account: payload.sub_account,
-                    fund_status: payload.fund_status,
-                    bot_status: payload.bot_status,
                 }
             }
             5 => {
@@ -141,17 +142,17 @@ impl VaultInstruction {
                 }
             }
             6 => Self::InitializeVaultDepositor {},
-            7 => {
-                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-                Self::DepositOld {
-                    vault_id: payload.vault_id,
-                    user_pubkey: payload.user_pubkey,
-                    amount: payload.amount,
-                    fund_status: payload.fund_status,
-                    bot_status: payload.bot_status,
-                    market_index: payload.market_index,
-                }
-            }
+            // 7 => {
+            //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+            //     Self::DepositOld {
+            //         vault_id: payload.vault_id,
+            //         user_pubkey: payload.user_pubkey,
+            //         amount: payload.amount,
+            //         fund_status: payload.fund_status,
+            //         bot_status: payload.bot_status,
+            //         market_index: payload.market_index,
+            //     }
+            // }
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

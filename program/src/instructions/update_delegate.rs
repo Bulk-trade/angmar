@@ -10,57 +10,48 @@ use solana_program::{
 use std::str::FromStr;
 
 use crate::drift::{UpdateUserDelegateIxArgs, UpdateUserDelegateIxData};
+use crate::state::Vault;
 
-pub fn update_delegate(
+pub fn update_vault_delegate<'a>(
     program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    vault_id: String,
+    accounts: &'a [AccountInfo<'a>],
+    name: String,
     delegate: String,
     sub_account: u16,
-    fund_status: String,
-    bot_status: String,
 ) -> ProgramResult {
+    // Log instruction parameters
     msg!("Updating delegate...");
-    msg!("vault_id: {}", vault_id);
+    msg!("vault_id: {}", name);
     msg!("delegate: {}", delegate);
     msg!("sub account: {}", sub_account);
-    msg!("fund_status: {}", fund_status);
-    msg!("bot_status: {}", bot_status);
 
+    // Extract accounts in expected order
     let account_info_iter = &mut accounts.iter();
-
-    let initializer = next_account_info(account_info_iter)?;
-    let vault = next_account_info(account_info_iter)?;
-
+    let manager = next_account_info(account_info_iter)?;
+    let vault_account = next_account_info(account_info_iter)?;
     let drift_program = next_account_info(account_info_iter)?;
     let drift_user = next_account_info(account_info_iter)?;
-    // First batch - Main accounts
-    msg!("1. initializer: {}", initializer.key);
-    msg!("2. vault: {}", vault.key);
 
-    // Second batch - Drift accounts
+    // Log account addresses for debugging
+    msg!("1. initializer: {}", manager.key);
+    msg!("2. vault: {}", vault_account.key);
     msg!("3. drift_program: {}", drift_program.key);
     msg!("4. drift_user: {}", drift_user.key);
 
-    if !initializer.is_signer {
+    // Verify manager signature
+    if !manager.is_signer {
         msg!("Missing required signature");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    msg!("Cpi to Drift");
-    let accounts_meta = vec![
-        AccountMeta {
-            pubkey: *drift_user.key,
-            is_signer: false,
-            is_writable: true,
-        },
-        AccountMeta {
-            pubkey: *vault.key,
-            is_signer: true,
-            is_writable: true,
-        },
-    ];
+    // Verify vault PDA
+    let (vault_pda, vault_bump_seed) = Vault::get_pda(&name, program_id);
+    if vault_pda != *vault_account.key {
+        msg!("Invalid seeds for Vault PDA");
+        return Err(ProgramError::InvalidArgument);
+    }
 
+    // Parse delegate public key
     let delegate_pubkey = match Pubkey::from_str(&delegate) {
         Ok(pubkey) => pubkey,
         Err(_) => {
@@ -68,34 +59,78 @@ pub fn update_delegate(
         }
     };
 
+
+    // Update vault state
+    let mut vault = Vault::get(vault_account);
+
+    if vault.manager != *manager.key {
+        msg!("Invalid Manager Account");
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    vault.delegate = delegate_pubkey;
+    Vault::save(&vault, vault_account);
+
+    // Update delegate through CPI
+    update_delegate(
+        drift_program,
+        drift_user,
+        vault_account,
+        name,
+        sub_account,
+        delegate_pubkey,
+        vault_bump_seed,
+    )?;
+
+    Ok(())
+}
+
+fn update_delegate<'a>(
+    drift_program: &'a AccountInfo<'a>,
+    drift_user: &'a AccountInfo<'a>,
+    vault_account: &'a AccountInfo<'a>,
+    name: String,
+    sub_account: u16,
+    delegate_pubkey: Pubkey,
+    vault_bump_seed: u8,
+) -> ProgramResult {
+    msg!("Update delegate CPI to Drift...");
+
+    // Prepare CPI accounts
+    let accounts_meta = vec![
+        AccountMeta {
+            pubkey: *drift_user.key,
+            is_signer: false,
+            is_writable: true,
+        },
+        AccountMeta {
+            pubkey: *vault_account.key,
+            is_signer: true,
+            is_writable: true,
+        },
+    ];
+
+    // Prepare instruction data
     let args = UpdateUserDelegateIxArgs {
         sub_account_id: sub_account,
         delegate: delegate_pubkey,
     };
-
     let data: UpdateUserDelegateIxData = args.into();
 
+    // Create and execute CPI
     let ix = Instruction {
         program_id: *drift_program.key,
         accounts: accounts_meta,
         data: data.try_to_vec()?,
     };
 
-    let (vault_pda, vault_bump_seed) =
-        Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
-
-    msg!("Vault PDA: {}", vault_pda);
-
-    if vault_pda != *vault.key {
-        msg!("Invalid seeds for Vault PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
-
     invoke_signed(
         &ix,
-        &[drift_user.clone(), vault.clone(), drift_program.clone()],
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
-
-    Ok(())
+        &[
+            drift_user.clone(),
+            vault_account.clone(),
+            drift_program.clone(),
+        ],
+        &[&[b"vault", name.as_bytes(), &[vault_bump_seed]]],
+    )
 }

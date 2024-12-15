@@ -8,8 +8,6 @@ export const vaultInstructionLayout = struct([
     str("fund_status"),
     str("bot_status"),
     u16("market_index"),
-    str("delegate"),
-    u16("sub_account")
 ]);
 
 export const initVaultInstuctionLayout = struct([
@@ -29,4 +27,11 @@ export const depositInstuctionLayout = struct([
     u8("variant"),
     str("name"),
     u64("amount"),
+]);
+
+export const updateDelegateInstuctionLayout = struct([
+    u8("variant"),
+    str("name"),
+    str("delegate"),
+    u16("sub_account"),
 ]);

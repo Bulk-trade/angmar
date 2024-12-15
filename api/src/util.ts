@@ -18,28 +18,53 @@ export enum BotStatus {
     Stopped = 'Stopped'
 }
 
-// async function wrapSol(connection: Connection, wallet: Keypair): Promise<PublicKey> {
-//     const associatedTokenAccount = await getAssociatedTokenAddress(
-//         NATIVE_MINT,
-//         wallet.publicKey
-//     );
+/**
+ * Find the vault PDA for a given vault name
+ * @param vaultName name of the vault
+ * @param programId program ID
+ * @returns vault PDA public key
+ */
+export function getVaultPDA(vaultName: string, programId: PublicKey): PublicKey {
+    const [vault] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault"), Buffer.from(vaultName)],
+        programId
+    );
+    return vault;
+}
 
-//     const wrapTransaction = new Transaction().add(
-//         createAssociatedTokenAccountInstruction(
-//             wallet.publicKey,
-//             associatedTokenAccount,
-//             wallet.publicKey,
-//             NATIVE_MINT
-//         ),
-//         SystemProgram.transfer({
-//             fromPubkey: wallet.publicKey,
-//             toPubkey: associatedTokenAccount,
-//             lamports: LAMPORTS_PER_SOL,
-//         }),
-//         createSyncNativeInstruction(associatedTokenAccount)
-//     );
-//     await sendAndConfirmTransaction(connection, wrapTransaction, [wallet]);
+/**
+ * Find the vault depositor PDA for a given vault and authority
+ * @param vault vault public key
+ * @param authority authority public key
+ * @param programId program ID
+ * @returns vault depositor PDA public key
+ */
+export function getVaultDepositorPDA(
+    vault: PublicKey,
+    authority: PublicKey,
+    programId: PublicKey
+): PublicKey {
+    const [vaultDepositor] = PublicKey.findProgramAddressSync(
+        [
+            Buffer.from("vault_depositor"),
+            vault.toBuffer(),
+            authority.toBuffer()
+        ],
+        programId
+    );
+    return vaultDepositor;
+}
 
-//     console.log("✅ - Step 2: SOL wrapped");
-//     return associatedTokenAccount;
-// }
+/**
+ * Find the treasury PDA for a given vault name
+ * @param vaultName name of the vault
+ * @param programId program ID
+ * @returns treasury PDA public key
+ */
+export function getTreasuryPDA(vaultName: string, programId: PublicKey): PublicKey {
+    const [treasury] = PublicKey.findProgramAddressSync(
+        [Buffer.from("treasury"), Buffer.from(vaultName)],
+        programId
+    );
+    return treasury;
+}

@@ -14,6 +14,8 @@
 # cargo update -p bumpalo@3.16.0 --precise 3.14.0
 # cargo update -p anchor-lang@0.30.0 --precise 0.29.0
 
+#rm '/Users/mac/Desktop/BULK/angmar/target/deploy/vault_program-keypair.json'
+
 # Build the Solana program
 cargo build-sbf --tools-version v1.41  
 
