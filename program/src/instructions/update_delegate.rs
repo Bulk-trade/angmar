@@ -69,7 +69,7 @@ pub fn update_vault_delegate<'a>(
     }
 
     vault.delegate = delegate_pubkey;
-    Vault::save(&vault, vault_account);
+    Vault::save(&vault, vault_account)?;
 
     // Update delegate through CPI
     update_delegate(

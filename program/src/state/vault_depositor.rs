@@ -1,12 +1,15 @@
-use borsh::{BorshDeserialize, BorshSerialize};
-use solana_program::{
-    account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, program_error::ProgramError,
-    program_pack::Sealed, pubkey::Pubkey,
-};
-
+use super::{Vault, WithdrawRequest};
 use crate::{
-    constants::{DECIMALS_SHARES, DECIMALS_USDC},
-    error::ErrorCode,
+    common::{log_data, log_params},
+    error::{wrap_drift_error, ErrorCode},
+    state::{VaultDepositorAction, VaultDepositorRecord},
+    validate,
+};
+use borsh::{BorshDeserialize, BorshSerialize};
+use drift::math::{insurance::vault_amount_to_if_shares, safe_math::SafeMath};
+use solana_program::{
+    account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, entrypoint::ProgramResult, msg,
+    program_error::ProgramError, program_pack::Sealed, pubkey::Pubkey,
 };
 
 #[derive(BorshSerialize, BorshDeserialize)]
@@ -19,6 +22,8 @@ pub struct VaultDepositor {
     pub authority: Pubkey,
     /// share of vault owned by this depositor. vault_shares / vault.total_shares is depositor's ownership of vault_equity
     pub vault_shares: u128,
+    /// last withdraw request
+    pub last_withdraw_request: WithdrawRequest,
     /// Timestamp vault depositor initialized
     pub init_ts: u64,
     /// creation ts of vault depositor
@@ -41,7 +46,7 @@ pub struct VaultDepositor {
 impl Sealed for VaultDepositor {}
 
 impl VaultDepositor {
-    pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+      pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"vault_depositor", vault.as_ref(), authority.as_ref()],
             program_id,
@@ -52,36 +57,83 @@ impl VaultDepositor {
         try_from_slice_unchecked::<VaultDepositor>(&account.data.borrow()).unwrap()
     }
 
-    pub fn save(vault_depositor: &VaultDepositor, account: &AccountInfo) {
-        let _ = vault_depositor.serialize(&mut &mut account.data.borrow_mut()[..]);
+    pub fn save(&self, account: &AccountInfo) -> ProgramResult {
+        self.serialize(&mut &mut account.data.borrow_mut()[..])?;
+        Ok(())
     }
 
     pub fn calculate_shares_for_deposit(
+        amount: u64,
         total_vault_shares: u128,
-        total_value_locked: u128,
-        deposit_usdc: u128,
+        total_value_locked: u64,
     ) -> Result<u128, ProgramError> {
-        if total_vault_shares == 0 {
-            // First deposit case: issue shares equivalent to the deposit amount in 18 decimals
-            return Ok(deposit_usdc * DECIMALS_SHARES / DECIMALS_USDC);
-        }
-        // Calculate shares proportional to NAV (using scaled decimals)
-        let scaled_deposit = deposit_usdc
-            .checked_mul(Self::PRECISION_FACTOR)
-            .ok_or(ErrorCode::Overflow)?;
-
-        let proportion = scaled_deposit
-            .checked_div(total_value_locked)
-            .ok_or(ErrorCode::Overflow)?;
-
-        let shares = proportion
-            .checked_mul(total_vault_shares)
-            .ok_or(ErrorCode::Overflow)?
-            .checked_div(Self::PRECISION_FACTOR)
-            .ok_or(ErrorCode::Overflow)?;
+        let shares = vault_amount_to_if_shares(
+            amount.try_into().unwrap(),
+            total_vault_shares,
+            total_value_locked.try_into().unwrap(),
+        )
+        .map_err(|e| ProgramError::Custom(e as u32))?;
 
         Ok(shares)
     }
 
-    const PRECISION_FACTOR: u128 = 1_000_000; // 6 decimal places for precision
+    pub fn request_withdraw(
+        &mut self,
+        withdraw_amount: u64,
+        vault_equity: u64,
+        vault: &mut Vault,
+        now: i64,
+    ) -> ProgramResult {
+        let shares = vault_amount_to_if_shares(withdraw_amount, vault.total_shares, vault_equity)
+            .map_err(|e| ProgramError::Custom(e as u32))?;
+
+        validate!(
+            shares > 0,
+            ErrorCode::InvalidVaultWithdrawSize,
+            "Requested shares = 0"
+        )?;
+
+        let vault_shares_before: u128 = self.vault_shares;
+        let total_vault_shares_before = vault.total_shares;
+        let user_vault_shares_before = vault.user_shares;
+
+        self.last_withdraw_request.set(
+            vault_shares_before,
+            shares,
+            withdraw_amount,
+            vault_equity,
+            now,
+        )?;
+
+        vault.total_withdraw_requested = vault
+            .total_withdraw_requested
+            .safe_add(withdraw_amount)
+            .map_err(wrap_drift_error)?;
+
+        msg!("Vault Withdraw Request Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: vault.pubkey,
+            depositor_authority: self.authority,
+            action: VaultDepositorAction::WithdrawRequest,
+            amount: withdraw_amount,
+            spot_market_index: vault.spot_market_index,
+            vault_equity_before: vault_equity,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after: self.vault_shares,
+            total_vault_shares_after: vault.total_shares,
+            user_vault_shares_after: vault.user_shares,
+            profit_share: vault.profit_share,
+            management_fee: 0,
+            management_fee_shares: vault.management_fee,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok(())
+    }
 }

@@ -118,7 +118,7 @@ fn initialize_depositor<'a>(
     vault_depositor.init_ts = Clock::get()?.unix_timestamp as u64;
 
     // Save state
-    VaultDepositor::save(&vault_depositor, vault_depositor_account);
+    VaultDepositor::save(&vault_depositor, vault_depositor_account)?;
 
     msg!("Successfully initialized vault depositor state");
     Ok(vault_depositor)

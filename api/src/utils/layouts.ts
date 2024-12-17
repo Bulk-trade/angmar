@@ -29,6 +29,11 @@ export const depositInstuctionLayout = struct([
     u64("amount"),
 ]);
 
+export const requestWithdrawInstuctionLayout = struct([
+    u8("variant"),
+    u64("amount"),
+]);
+
 export const updateDelegateInstuctionLayout = struct([
     u8("variant"),
     str("name"),

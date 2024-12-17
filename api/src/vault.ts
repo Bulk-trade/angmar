@@ -8,7 +8,8 @@ import { TransactionMessage } from "@solana/web3.js";
 import { getSignature } from "./utils/get-signature";
 import { handleTransactionResponse } from "./utils/handle-txn";
 import BN from "bn.js";
-import { depositInstuctionLayout, initVaultInstuctionLayout, updateDelegateInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
+import { depositInstuctionLayout, initVaultInstuctionLayout, requestWithdrawInstuctionLayout, updateDelegateInstuctionLayout, vaultInstructionLayout } from "./utils/layouts";
+import { getDriftStateAccountPublicKey } from "@drift-labs/sdk";
 
 const computeBudgetInstruction =
     ComputeBudgetProgram.setComputeUnitLimit({
@@ -568,6 +569,126 @@ export async function deposit(
     ];
 
     keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const instruction = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: authority.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([authority]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+
+    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
+}
+
+export async function requestWithdraw(
+    connection: Connection,
+    authority: Keypair,
+    programId: PublicKey,
+    vault_name: string,
+    amount: number,
+    spotMarket: PublicKey,
+    oracle: PublicKey,
+) {
+    // Log the input parameters
+    console.log('Received deposit parameters:', { vault_name, amount});
+
+    let buffer = Buffer.alloc(1000);
+
+    // Assuming `amount` is a number
+    const amountBN = new BN(amount);
+
+    requestWithdrawInstuctionLayout.encode(
+        {
+            variant: 2,
+            amount: amountBN,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, requestWithdrawInstuctionLayout.getSpan(buffer));
+
+    const vault = getVaultPDA(vault_name, programId)
+
+    console.log("Vault PDA is:", vault.toBase58());
+
+    const vaultDepositor = getVaultDepositorPDA(vault, authority.publicKey, programId);
+
+    console.log("Vault Depositor is:", vaultDepositor.toBase58());
+
+    const [user, userStats] = getDriftUser(vault);
+    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+    
+    const keys: AccountMeta[] = [
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultDepositor,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: authority.publicKey,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userStats,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: state,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: oracle,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
 
     console.log(`Keys Length: ${keys.length}`);
 

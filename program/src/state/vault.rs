@@ -9,8 +9,10 @@ use drift::state::spot_market_map::SpotMarketMap;
 use drift::state::user::User;
 use solana_program::account_info::AccountInfo;
 use solana_program::borsh0_10::try_from_slice_unchecked;
+use solana_program::entrypoint::ProgramResult;
 use solana_program::program_pack::Sealed;
 use solana_program::pubkey::Pubkey;
+use std::result::Result;
 
 use crate::constants::PERCENTAGE_PRECISION;
 
@@ -96,8 +98,9 @@ impl Vault {
         try_from_slice_unchecked::<Vault>(&account.data.borrow()).unwrap()
     }
 
-    pub fn save(vault: &Vault, vault_account: &AccountInfo) {
-        let _ = vault.serialize(&mut &mut vault_account.data.borrow_mut()[..]);
+    pub fn save(vault: &Vault, vault_account: &AccountInfo) -> ProgramResult {
+        vault.serialize(&mut &mut vault_account.data.borrow_mut()[..])?;
+        Ok(())
     }
 
     pub fn calculate_total_equity(
@@ -106,7 +109,7 @@ impl Vault {
         perp_market_map: &PerpMarketMap,
         spot_market_map: &SpotMarketMap,
         oracle_map: &mut OracleMap,
-    ) -> std::result::Result<u64, ErrorCode> {
+    ) -> Result<u64, ErrorCode> {
         let (vault_equity, _all_oracles_valid) =
             calculate_user_equity(user, perp_market_map, spot_market_map, oracle_map)?;
 

@@ -32,6 +32,9 @@ pub enum VaultInstruction {
         bot_status: String,
         market_index: u16,
     },
+    WithdrawRequest {
+        amount: u64,
+    },
     Withdraw {
         vault_id: String,
         user_pubkey: String,
@@ -47,15 +50,15 @@ pub enum VaultInstruction {
     },
 }
 
-#[derive(BorshDeserialize)]
-struct BaseVaultPayload {
-    name: String,
-    user_pubkey: String,
-    amount: u64,
-    fund_status: String,
-    bot_status: String,
-    market_index: u16,
-}
+// #[derive(BorshDeserialize)]
+// struct BaseVaultPayload {
+//     name: String,
+//     user_pubkey: String,
+//     amount: u64,
+//     fund_status: String,
+//     bot_status: String,
+//     market_index: u16,
+// }
 
 #[derive(BorshDeserialize)]
 struct InitVaultPayload {
@@ -83,22 +86,27 @@ struct UpdateDelegatePayload {
     sub_account: u16,
 }
 
+#[derive(BorshDeserialize)]
+struct WithdrawRequestPayload {
+    amount: u64,
+}
+
 impl VaultInstruction {
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         let (&variant, rest) = input
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
         Ok(match variant {
-            // 0 => {
-            //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
-            //     Self::InitializeVault {
-            //         vault_id: payload.vault_id,
-            //     }
-            // }
             1 => {
                 let payload = DepositPayload::try_from_slice(rest).unwrap();
                 Self::Deposit {
                     name: payload.name,
+                    amount: payload.amount,
+                }
+            }
+            2 => {
+                let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
+                Self::WithdrawRequest {
                     amount: payload.amount,
                 }
             }

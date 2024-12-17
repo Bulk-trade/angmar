@@ -29,10 +29,35 @@ pub enum ErrorCode {
 
     #[error("InvalidVaultDeposit")]
     InvalidVaultDeposit,
+
+    #[error("VaultWithdrawRequestInProgress")]
+    VaultWithdrawRequestInProgress,
+
+    #[error("InvalidVaultWithdrawSize")]
+    InvalidVaultWithdrawSize,
+
+    #[error("CannotWithdrawBeforeRedeemPeriodEnd")]
+    CannotWithdrawBeforeRedeemPeriodEnd,
 }
 
 impl From<ErrorCode> for ProgramError {
     fn from(e: ErrorCode) -> Self {
         ProgramError::Custom(e as u32)
     }
+}
+
+// Create wrapper type in our crate
+#[derive(Debug)]
+pub struct DriftErrorWrapper(drift::error::ErrorCode);
+
+// Implement From for our wrapper
+impl From<DriftErrorWrapper> for ProgramError {
+    fn from(e: DriftErrorWrapper) -> Self {
+        ProgramError::Custom(e.0 as u32)
+    }
+}
+
+// Helper function to wrap drift errors
+pub fn wrap_drift_error(e: drift::error::ErrorCode) -> ProgramError {
+    DriftErrorWrapper(e).into()
 }

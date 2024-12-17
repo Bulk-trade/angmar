@@ -172,9 +172,9 @@ pub fn deposit<'info>(
     msg!("Deposit amount after fees: {}", amount);
 
     let new_shares = VaultDepositor::calculate_shares_for_deposit(
+        amount,
         total_vault_shares_before,
-        vault_equity as u128,
-        amount as u128,
+        vault_equity,
     )?;
     msg!("Issuing user shares: {}", new_shares);
 
@@ -182,7 +182,7 @@ pub fn deposit<'info>(
     vault_depositor.net_deposits += amount;
     vault_depositor.vault_shares += new_shares;
 
-    VaultDepositor::save(&vault_depositor, vault_depositor_account);
+    VaultDepositor::save(&vault_depositor, vault_depositor_account)?;
 
     vault.manager_total_fee += fees;
     vault.total_deposits += amount;
@@ -190,7 +190,7 @@ pub fn deposit<'info>(
     vault.user_shares += new_shares as u128;
     vault.total_shares += new_shares as u128;
 
-    Vault::save(&vault, vault_account);
+    Vault::save(&vault, vault_account)?;
 
     msg!("Vault Deposit Record");
     let record = VaultDepositorRecord {

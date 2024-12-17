@@ -215,7 +215,7 @@ fn initialize_vault<'a>(
     vault.bump = vault_bump_seed;
     vault.permissioned = params.permissioned;
 
-    Vault::save(&vault, vault_account);
+    Vault::save(&vault, vault_account)?;
 
     msg!("Successfully initialized vault");
     Ok(())
