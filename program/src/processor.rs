@@ -1,7 +1,8 @@
 use crate::instruction::VaultInstruction;
 use crate::instructions::{
-    deposit, deposit_old, initialize_drift, initialize_drift_vault_with_bulk, initialize_vault,
-    initialize_vault_depositor, request_withdraw, update_vault_delegate, withdraw, VaultParams,
+    cancel_withdraw_request, deposit, deposit_old, initialize_drift,
+    initialize_drift_vault_with_bulk, initialize_vault, initialize_vault_depositor,
+    request_withdraw, update_vault_delegate, withdraw, VaultParams,
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -47,6 +48,7 @@ pub fn process_instruction<'a>(
         VaultInstruction::WithdrawRequest { amount } => {
             request_withdraw(program_id, accounts, amount)
         }
+        VaultInstruction::CancelWithdrawRequest {} => cancel_withdraw_request(program_id, accounts),
         VaultInstruction::Withdraw {
             vault_id,
             user_pubkey,

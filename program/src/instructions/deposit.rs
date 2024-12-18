@@ -1,6 +1,6 @@
 use crate::common::{bytes32_to_string, deserialize_zero_copy, log_accounts, log_data, log_params};
 use crate::drift::{DepositIxArgs, DepositIxData};
-use crate::error::ErrorCode;
+use crate::error::{wrap_drift_error, ErrorCode};
 use crate::state::{Vault, VaultDepositor, VaultDepositorAction, VaultDepositorRecord};
 use crate::validate;
 use drift::instructions::optional_accounts::{load_maps, AccountMaps};
@@ -136,7 +136,7 @@ pub fn deposit<'info>(
 
     let vault_equity = vault
         .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
-        .map_err(|e| ProgramError::Custom(e as u32))?;
+        .map_err(wrap_drift_error)?;
 
     msg!("vault_equity: {:?}", vault_equity);
 

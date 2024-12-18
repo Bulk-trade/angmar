@@ -46,7 +46,7 @@ pub struct VaultDepositor {
 impl Sealed for VaultDepositor {}
 
 impl VaultDepositor {
-      pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+    pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"vault_depositor", vault.as_ref(), authority.as_ref()],
             program_id,
@@ -72,7 +72,7 @@ impl VaultDepositor {
             total_vault_shares,
             total_value_locked.try_into().unwrap(),
         )
-        .map_err(|e| ProgramError::Custom(e as u32))?;
+        .map_err(wrap_drift_error)?;
 
         Ok(shares)
     }
@@ -85,7 +85,7 @@ impl VaultDepositor {
         now: i64,
     ) -> ProgramResult {
         let shares = vault_amount_to_if_shares(withdraw_amount, vault.total_shares, vault_equity)
-            .map_err(|e| ProgramError::Custom(e as u32))?;
+            .map_err(wrap_drift_error)?;
 
         validate!(
             shares > 0,
@@ -117,6 +117,50 @@ impl VaultDepositor {
             depositor_authority: self.authority,
             action: VaultDepositorAction::WithdrawRequest,
             amount: withdraw_amount,
+            spot_market_index: vault.spot_market_index,
+            vault_equity_before: vault_equity,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after: self.vault_shares,
+            total_vault_shares_after: vault.total_shares,
+            user_vault_shares_after: vault.user_shares,
+            profit_share: vault.profit_share,
+            management_fee: 0,
+            management_fee_shares: vault.management_fee,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok(())
+    }
+
+    pub fn cancel_withdraw_request(
+        &mut self,
+        vault_equity: u64,
+        vault: &mut Vault,
+        now: i64,
+    ) -> ProgramResult {
+        let vault_shares_before: u128 = self.vault_shares;
+        let total_vault_shares_before = vault.total_shares;
+        let user_vault_shares_before = vault.user_shares;
+
+        vault.total_withdraw_requested = vault
+            .total_withdraw_requested
+            .safe_sub(self.last_withdraw_request.value)
+            .map_err(wrap_drift_error)?;
+
+        self.last_withdraw_request.reset(now)?;
+
+        msg!("Vault Withdraw Request Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: vault.pubkey,
+            depositor_authority: self.authority,
+            action: VaultDepositorAction::CancelWithdrawRequest,
+            amount: 0,
             spot_market_index: vault.spot_market_index,
             vault_equity_before: vault_equity,
             vault_shares_before,

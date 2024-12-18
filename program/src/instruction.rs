@@ -35,6 +35,7 @@ pub enum VaultInstruction {
     WithdrawRequest {
         amount: u64,
     },
+    CancelWithdrawRequest {},
     Withdraw {
         vault_id: String,
         user_pubkey: String,
@@ -110,6 +111,7 @@ impl VaultInstruction {
                     amount: payload.amount,
                 }
             }
+            3 => Self::CancelWithdrawRequest {},
             // 2 => {
             //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
             //     Self::Withdraw {

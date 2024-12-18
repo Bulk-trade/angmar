@@ -1,3 +1,4 @@
+use crate::error::wrap_drift_error;
 use crate::{error::ErrorCode, validate};
 use borsh::{BorshDeserialize, BorshSerialize};
 use drift::math::safe_math::SafeMath;
@@ -67,9 +68,7 @@ impl WithdrawRequest {
     }
 
     pub fn check_redeem_period_finished(&self, vault: &Vault, now: i64) -> ProgramResult {
-        let time_since_withdraw_request = now
-            .safe_sub(self.ts)
-            .map_err(|e| ProgramError::Custom(e as u32))?;
+        let time_since_withdraw_request = now.safe_sub(self.ts).map_err(wrap_drift_error)?;
 
         validate!(
             time_since_withdraw_request >= vault.redeem_period as i64,
