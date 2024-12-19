@@ -38,6 +38,21 @@ pub enum ErrorCode {
 
     #[error("CannotWithdrawBeforeRedeemPeriodEnd")]
     CannotWithdrawBeforeRedeemPeriodEnd,
+
+    #[error("InvalidEquityValue")]
+    InvalidEquityValue,
+
+    #[error("InsufficientVaultShares")]
+    InsufficientVaultShares,
+
+    #[error("InvalidVaultWithdraw")]
+    InvalidVaultWithdraw,
+
+    #[error("MathError")]
+    MathError,
+
+    #[error("InsufficientWithdraw")]
+    InsufficientWithdraw,
 }
 
 impl From<ErrorCode> for ProgramError {

@@ -272,7 +272,7 @@ export async function initializeDriftWithBulk(
 
     initVaultInstuctionLayout.encode(
         {
-            variant: 5,
+            variant: 0,
             name,
             redeem_period: redeem_period_bn,
             max_tokens: max_tokens_bn,
@@ -401,7 +401,7 @@ export async function initializeVaultDepositor(
     let buffer = Buffer.alloc(1000);
     initVaultInstuctionLayout.encode(
         {
-            variant: 6
+            variant: 1
         },
         buffer
     );
@@ -506,7 +506,7 @@ export async function deposit(
 
     depositInstuctionLayout.encode(
         {
-            variant: 1,
+            variant: 3,
             name: vault_name.slice(0, 32),
             amount: amountBN,
         },
@@ -628,7 +628,7 @@ export async function requestWithdraw(
 
     requestWithdrawInstuctionLayout.encode(
         {
-            variant: 2,
+            variant: 4,
             amount: amountBN,
         },
         buffer
@@ -744,7 +744,7 @@ export async function cancelWithdrawRequest(
 
     initVaultInstuctionLayout.encode(
         {
-            variant: 3
+            variant: 5
         },
         buffer
     );
@@ -989,66 +989,41 @@ export async function deposit_old(
 
 export async function withdraw(
     connection: Connection,
-    signer: Keypair,
+    authority: Keypair,
     programId: PublicKey,
-    vault_id: string,
-    user_pubkey: string,
-    amount: number,
-    marketIndex: number,
-    spotMarket: PublicKey,
+    vault_name: string,
     spotMarketVault: PublicKey,
+    spotMarket: PublicKey,
     oracle: PublicKey,
     mint: PublicKey,
 ) {
 
     // Log the input parameters
-    console.log('Received withdraw parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket, spotMarketVault, oracle, mint });
-
-    // Validate input parameters
-    if (!vault_id || !user_pubkey) {
-        throw new Error('vault_id and user_pubkey must be defined');
-    }
+    console.log('Received withdraw parameters:', { spotMarket, spotMarketVault, oracle, mint });
 
     let buffer = Buffer.alloc(1000);
-    const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
-    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
-
-    // Assuming `amount` is a number
-    const amountBN = new BN(amount);
-    vaultInstructionLayout.encode(
+    initVaultInstuctionLayout.encode(
         {
-            variant: 2,
-            vault_id: vault,
-            user_pubkey: pubKey,
-            amount: amountBN,
-            fund_status: FundStatus.Withdrawn,
-            bot_status: BotStatus.Init,
-            market_index: marketIndex,
+            variant: 6
         },
         buffer
     );
 
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
+    buffer = buffer.subarray(0, initVaultInstuctionLayout.getSpan(buffer));
 
-    const [user_info_pda] = PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
-        programId
-    );
+    const vault = getVaultPDA(vault_name, programId)
 
-    console.log("User PDA is:", user_info_pda.toBase58());
+    console.log("Vault PDA is:", vault.toBase58());
 
-    const vault_pda = getVaultPDA(vault_id, programId);
+    const vaultDepositor = getVaultDepositorPDA(vault, authority.publicKey, programId);
 
-    console.log("Vault PDA is:", vault_pda.toBase58());
+    console.log("Vault Depositor is:", vaultDepositor.toBase58());
 
-    const [treasury] = await PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_id)],
-        programId
-    );
+    const treasury = getTreasuryPDA(vault_name, programId);
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
-    const userTokenAccount = (await connection.getTokenAccountsByOwner(signer.publicKey, {
+    const userTokenAccount = (await connection.getTokenAccountsByOwner(authority.publicKey, {
         mint: mint
     })).value[0].pubkey;
 
@@ -1056,30 +1031,30 @@ export async function withdraw(
 
     const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
         connection,
-        signer,
+        authority,
         mint,
         treasury,
         true
     )).address;
 
-    console.log("Treasury Token account:", userTokenAccount.toString());
+    console.log("Treasury Token account:", treasuryTokenAccount.toString());
 
-    const driftKeys = await getDriftWithdrawKeys(connection, signer, programId, userTokenAccount, treasuryTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
+    const driftKeys = await getDriftWithdrawKeys(connection, authority, programId, userTokenAccount, treasuryTokenAccount, vault_name, spotMarket, spotMarketVault, oracle, mint);
 
     const keys: AccountMeta[] = [
         {
-            pubkey: signer.publicKey,
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultDepositor,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: authority.publicKey,
             isSigner: true,
-            isWritable: true,
-        },
-        {
-            pubkey: user_info_pda,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: vault_pda,
-            isSigner: false,
             isWritable: true,
         },
         {
@@ -1104,13 +1079,13 @@ export async function withdraw(
 
     const transaction = new VersionedTransaction(
         new TransactionMessage({
-            payerKey: signer.publicKey,
+            payerKey: authority.publicKey,
             recentBlockhash: blockhashResult.blockhash,
             instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
         }).compileToV0Message()
     );
 
-    transaction.sign([signer]);
+    transaction.sign([authority]);
 
     // Get the transaction signature
     const signature = getSignature(transaction);
@@ -1148,7 +1123,7 @@ export async function updateDelegate(
 
     updateDelegateInstuctionLayout.encode(
         {
-            variant: 4,
+            variant: 2,
             name: vault_name,
             delegate: delegate,
             sub_account: sub_account_bn,

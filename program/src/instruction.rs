@@ -36,14 +36,7 @@ pub enum VaultInstruction {
         amount: u64,
     },
     CancelWithdrawRequest {},
-    Withdraw {
-        vault_id: String,
-        user_pubkey: String,
-        amount: u64,
-        fund_status: String,
-        bot_status: String,
-        market_index: u16,
-    },
+    Withdraw {},
     UpdateDelegate {
         name: String,
         delegate: String,
@@ -98,20 +91,44 @@ impl VaultInstruction {
             .split_first()
             .ok_or(ProgramError::InvalidInstructionData)?;
         Ok(match variant {
-            1 => {
+            0 => {
+                let payload = InitVaultPayload::try_from_slice(rest).unwrap();
+                Self::InitializeDriftWithBulk {
+                    name: payload.name,
+                    redeem_period: payload.redeem_period,
+                    max_tokens: payload.max_tokens,
+                    management_fee: payload.management_fee,
+                    min_deposit_amount: payload.min_deposit_amount,
+                    profit_share: payload.profit_share,
+                    hurdle_rate: payload.hurdle_rate,
+                    spot_market_index: payload.spot_market_index,
+                    permissioned: payload.permissioned,
+                }
+            }
+            1 => Self::InitializeVaultDepositor {},
+            2 => {
+                let payload = UpdateDelegatePayload::try_from_slice(rest).unwrap();
+                Self::UpdateDelegate {
+                    name: payload.name,
+                    delegate: payload.delegate,
+                    sub_account: payload.sub_account,
+                }
+            }
+            3 => {
                 let payload = DepositPayload::try_from_slice(rest).unwrap();
                 Self::Deposit {
                     name: payload.name,
                     amount: payload.amount,
                 }
             }
-            2 => {
+            4 => {
                 let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
                 Self::WithdrawRequest {
                     amount: payload.amount,
                 }
             }
-            3 => Self::CancelWithdrawRequest {},
+            5 => Self::CancelWithdrawRequest {},
+            6 => Self::Withdraw {},
             // 2 => {
             //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
             //     Self::Withdraw {
@@ -129,29 +146,7 @@ impl VaultInstruction {
             //         vault_id: payload.vault_id,
             //     }
             // }
-            4 => {
-                let payload = UpdateDelegatePayload::try_from_slice(rest).unwrap();
-                Self::UpdateDelegate {
-                    name: payload.name,
-                    delegate: payload.delegate,
-                    sub_account: payload.sub_account,
-                }
-            }
-            5 => {
-                let payload = InitVaultPayload::try_from_slice(rest).unwrap();
-                Self::InitializeDriftWithBulk {
-                    name: payload.name,
-                    redeem_period: payload.redeem_period,
-                    max_tokens: payload.max_tokens,
-                    management_fee: payload.management_fee,
-                    min_deposit_amount: payload.min_deposit_amount,
-                    profit_share: payload.profit_share,
-                    hurdle_rate: payload.hurdle_rate,
-                    spot_market_index: payload.spot_market_index,
-                    permissioned: payload.permissioned,
-                }
-            }
-            6 => Self::InitializeVaultDepositor {},
+
             // 7 => {
             //     let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
             //     Self::DepositOld {

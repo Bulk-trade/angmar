@@ -1,6 +1,6 @@
-use solana_program::pubkey::Pubkey;
 use borsh::{BorshDeserialize, BorshSerialize};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct VaultDepositorRecord {
@@ -23,10 +23,10 @@ pub struct VaultDepositorRecord {
     pub total_vault_shares_after: u128,
 
     pub profit_share: u32,
+    pub profit_share_amount: u64,
     pub management_fee: u64,
-    pub management_fee_shares: u64,
+    pub management_fee_amount: u64,
 }
-
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub enum VaultDepositorAction {

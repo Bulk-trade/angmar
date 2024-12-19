@@ -172,11 +172,6 @@ export async function getDriftDepositKeys(
             isSigner: false,
             isWritable: false,
         },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
     ]
 }
 
@@ -268,11 +263,6 @@ export async function getDriftWithdrawKeys(
         },
         {
             pubkey: TOKEN_PROGRAM_ID,
-            isSigner: false,
-            isWritable: false,
-        },
-        {
-            pubkey: SystemProgram.programId,
             isSigner: false,
             isWritable: false,
         },

@@ -1,6 +1,6 @@
 pub mod initialize_vault;
 pub mod deposit;
-pub mod withdraw;
+pub mod withdraw_old;
 pub mod initialize_drift;
 pub mod update_delegate;
 pub mod initialize_drift_vault_with_bulk;
@@ -8,10 +8,11 @@ pub mod initialize_vault_depositor;
 pub mod deposit_old;
 pub mod request_withdraw;
 pub mod cancel_withdraw_request;
+pub mod withdraw;
 
 pub use initialize_vault::*;
 pub use deposit::*;
-pub use withdraw::*;
+pub use withdraw_old::*;
 pub use initialize_drift::*;
 pub use update_delegate::*;
 pub use initialize_drift_vault_with_bulk::*;
@@ -19,3 +20,4 @@ pub use initialize_vault_depositor::*;
 pub use deposit_old::*;
 pub use request_withdraw::*;
 pub use cancel_withdraw_request::*;
+pub use withdraw::*;

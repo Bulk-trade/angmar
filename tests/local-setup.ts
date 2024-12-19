@@ -149,7 +149,7 @@ export async function localnetSetup() {
 export async function bootstrapVaults() {
     await adminClient.subscribe();
 
-    const signer = Keypair.fromSecretKey(bs58.decode('3JqKi48PaCNY3jyBq45YCSqSaiKRj4Jtbbcbdu89nRCx6Q44wpyoMEgMbLQ3yeTHPefnDu3WFpcgPLYgJVVSV5xi')); 
+    const signer = Keypair.fromSecretKey(bs58.decode('3JqKi48PaCNY3jyBq45YCSqSaiKRj4Jtbbcbdu89nRCx6Q44wpyoMEgMbLQ3yeTHPefnDu3WFpcgPLYgJVVSV5xi'));
 
     // init vault manager
     const bootstrapManager = await bootstrapSignerClientAndUser({
@@ -170,13 +170,13 @@ export async function bootstrapVaults() {
         },
     });
     _manager = bootstrapManager.signer;
-   // managerClient = bootstrapManager.vaultClient;
+    // managerClient = bootstrapManager.vaultClient;
     managerUser = bootstrapManager.user;
 
     console.log('_manager:', _manager.publicKey.toString());
     //console.log('managerUser:', managerUser);
 
-    const delegateSigner = Keypair.fromSecretKey(bs58.decode('58ddNgbzxZbdcZ3zda4xMeqCdFCe78Aobz7q6xBystyLg3NfPJ9vqjx734oVCHWrmNYoPW9EcVRLP8at3o6AfTHi')); 
+    const delegateSigner = Keypair.fromSecretKey(bs58.decode('58ddNgbzxZbdcZ3zda4xMeqCdFCe78Aobz7q6xBystyLg3NfPJ9vqjx734oVCHWrmNYoPW9EcVRLP8at3o6AfTHi'));
 
     const bootstrapDelegate = await bootstrapSignerClientAndUser({
         signer: delegateSigner,
@@ -225,13 +225,13 @@ export async function bootstrapVaults() {
         },
     });
     vd2 = bootstrapVD2.signer;
-   // vd2Client = bootstrapVD2.vaultClient;
+    // vd2Client = bootstrapVD2.vaultClient;
     vd2UserUSDCAccount = bootstrapVD2.userUSDCAccount.publicKey;
     _vd2User = bootstrapVD2.user;
 
     console.log('vd2:', vd2.publicKey.toString());
     console.log('vd2UserUSDCAccount:', vd2UserUSDCAccount.toString());
-   // console.log('_vd2User:', _vd2User);
+    // console.log('_vd2User:', _vd2User);
 
     // start account loader
     bulkAccountLoader.startPolling();
@@ -241,12 +241,6 @@ export async function bootstrapVaults() {
     console.log(`Spot Market 0 Mint: ${adminClient.getSpotMarketAccount(0).mint.toString()}`);
     console.log(`Spot Market 1: ${adminClient.getSpotMarketAccount(1).vault.toString()}`);
     console.log(`Spot Market 1 Mint: ${adminClient.getSpotMarketAccount(1).mint.toString()}`);
-
-    const remainingAccounts = adminClient.getRemainingAccounts({
-        userAccounts: [],
-        writableSpotMarketIndexes: [0],
-    });
-    console.log('Remaining Accounts:', JSON.stringify(remainingAccounts, null, 2));
- }
+}
 
 localnetSetup()

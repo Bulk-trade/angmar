@@ -1,6 +1,6 @@
 use crate::{
     common::{log_accounts, log_params, string_to_bytes32},
-    constants::PERCENTAGE_PRECISION,
+    constants::{PERCENTAGE_PRECISION, PERCENTAGE_PRECISION_U64},
     drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData},
     error::ErrorCode,
     state::Treasury,
@@ -195,7 +195,7 @@ fn initialize_vault<'a>(
     vault.redeem_period = params.redeem_period;
     vault.max_tokens = params.max_tokens;
 
-    if params.management_fee >= PERCENTAGE_PRECISION {
+    if params.management_fee >= PERCENTAGE_PRECISION_U64 {
         msg!("management fee must be < 100%");
         return Err(ErrorCode::InvalidVaultInitialization.into());
     }

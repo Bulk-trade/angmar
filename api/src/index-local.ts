@@ -142,7 +142,7 @@ app.post('/deposit-wsol', async (req, res) => {
 
 app.post('/withdraw-usdc', async (req, res) => {
     try {
-        const { vault_id, user_pubkey, amount } = req.body;
+        const { vault_name } = req.body;
         const signer = await initializeKeypair(connection, {
             airdropAmount: 2 * LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY_USER",
@@ -151,7 +151,7 @@ app.post('/withdraw-usdc', async (req, res) => {
         console.log("before withdraw")
         console.log(await connection.getBalance(signer.publicKey))
 
-        await withdraw(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, SPOT_MARKET_USDC, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, USDC_MINT_LOCAL);
+        await withdraw(connection, signer, BULK_PROGRAM_ID, vault_name, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
         console.log("after withdraw")
         console.log(await connection.getBalance(signer.publicKey))
@@ -216,12 +216,12 @@ app.listen(PORT, async () => {
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    const vault_name = 'bulk2';
+    const vault_name = 'bulk';
 
     console.log('Admin SIGNER', admin.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 5 * 60, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
+    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 30, 1000 * 1_000_000, 10_000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
     // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
@@ -232,5 +232,7 @@ app.listen(PORT, async () => {
     // await requestWithdraw(connection, user, BULK_PROGRAM_ID, vault_name, 100000, ORACLE_USDC, SPOT_MARKET_USDC);
 
     // await cancelWithdrawRequest(connection, user, BULK_PROGRAM_ID, vault_name, ORACLE_USDC, SPOT_MARKET_USDC);
+
+     await withdraw(connection, user, BULK_PROGRAM_ID, vault_name, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC,  USDC_MINT_LOCAL);
 });
 

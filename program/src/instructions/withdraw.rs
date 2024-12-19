@@ -1,171 +1,200 @@
-use crate::drift::{WithdrawIxArgs, WithdrawIxData};
-use crate::error::ErrorCode;
-use crate::state::UserInfoAccountState;
-use borsh::BorshSerialize;
-use solana_program::instruction::{AccountMeta, Instruction};
+use std::collections::BTreeSet;
+
+use crate::{
+    common::{
+        bytes32_to_string, deserialize_zero_copy, log_accounts, transfer_fees_from_vault,
+        transfer_to_user,
+    },
+    drift::{WithdrawIxArgs, WithdrawIxData},
+    error::wrap_drift_error,
+    state::{Vault, VaultDepositor},
+};
+use drift::{
+    instructions::optional_accounts::{load_maps, AccountMaps},
+    state::{spot_market_map::get_writable_spot_market_set, user::User},
+};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
-    borsh0_10::try_from_slice_unchecked,
     entrypoint::ProgramResult,
+    instruction::{AccountMeta, Instruction},
     msg,
     program::invoke_signed,
     program_error::ProgramError,
     pubkey::Pubkey,
+    sysvar::{clock::Clock, Sysvar},
 };
-use spl_token::instruction;
 
-pub fn withdraw(
+pub fn withdraw<'info>(
     program_id: &Pubkey,
-    accounts: &[AccountInfo],
-    vault_id: String,
-    user_pubkey: String,
-    mut amount: u64,
-    fund_status: String,
-    bot_status: String,
-    market_index: u16,
+    accounts: &'info [AccountInfo<'info>],
 ) -> ProgramResult {
+    let clock = &Clock::get()?;
 
-    //https://github.com/solana-labs/farms/blob/master/fund/src/instructions/request_withdrawal.rs
-    msg!("Starting withdraw...");
-    msg!("vault_id: {}", vault_id);
-    msg!("user_pubkey: {}", user_pubkey);
-    msg!("amount: {}", amount);
-    msg!("fund_status: {}", fund_status);
-    msg!("bot_status: {}", bot_status);
-    msg!("market_index: {}", market_index);
+    let mut iter = accounts.iter();
 
-    let account_info_iter = &mut accounts.iter();
+    let vault_account = next_account_info(&mut iter)?;
+    let vault_depositor_account = next_account_info(&mut iter)?;
+    let authority = next_account_info(&mut iter)?;
+    let treasury = next_account_info(&mut iter)?;
 
-    let initializer = next_account_info(account_info_iter)?;
-    let user_info = next_account_info(account_info_iter)?;
-    let vault = next_account_info(account_info_iter)?;
-    let treasury = next_account_info(account_info_iter)?;
+    let drift_program = next_account_info(&mut iter)?;
+    let drift_user = next_account_info(&mut iter)?;
+    let drift_user_stats = next_account_info(&mut iter)?;
+    let drift_state = next_account_info(&mut iter)?;
+    let drift_spot_market_vault = next_account_info(&mut iter)?;
+    let drift_oracle = next_account_info(&mut iter)?;
+    let drift_spot_market = next_account_info(&mut iter)?;
+    let drift_signer = next_account_info(&mut iter)?;
 
-    let drift_program = next_account_info(account_info_iter)?;
-    let drift_user = next_account_info(account_info_iter)?;
-    let drift_user_stats = next_account_info(account_info_iter)?;
-    let drift_state = next_account_info(account_info_iter)?;
-    let drift_spot_market_vault = next_account_info(account_info_iter)?;
-    let drift_oracle = next_account_info(account_info_iter)?;
-    let drift_spot_market = next_account_info(account_info_iter)?;
-    let drift_signer = next_account_info(account_info_iter)?;
+    let user_token_account = next_account_info(&mut iter)?;
+    let vault_token_account = next_account_info(&mut iter)?;
+    let treasury_token_account = next_account_info(&mut iter)?;
+    let mint = next_account_info(&mut iter)?;
 
-    let user_token_account = next_account_info(account_info_iter)?;
-    let vault_token_account = next_account_info(account_info_iter)?;
-    let treasury_token_account = next_account_info(account_info_iter)?;
-    let mint = next_account_info(account_info_iter)?;
+    let token_program = next_account_info(&mut iter)?;
 
-    let token_program = next_account_info(account_info_iter)?;
-    let _system_program = next_account_info(account_info_iter)?;
+    log_accounts(&[
+        // Vault accounts
+        (vault_account, "Vault"),
+        (vault_depositor_account, "Vault Depositor"),
+        (authority, "Authority"),
+        (treasury, "Treasury"),
+        // Drift accounts
+        (drift_program, "Drift Program"),
+        (drift_user, "Drift User"),
+        (drift_user_stats, "Drift User Stats"),
+        (drift_state, "Drift State"),
+        (drift_spot_market_vault, "Drift Spot Market Vault"),
+        (drift_signer, "Drift Signer"),
+        (drift_oracle, "Drift Oracle"),
+        (drift_spot_market, "Drift Spot Market"),
+        // Token accounts
+        (user_token_account, "User Token Account"),
+        (vault_token_account, "Vault Token Account"),
+        (treasury_token_account, "Treasury Token Account"),
+        (mint, "Mint"),
+        // System accounts
+        (token_program, "Token Program"),
+    ]);
 
-    if !initializer.is_signer {
+    if !authority.is_signer {
         msg!("Missing required signature");
         return Err(ProgramError::MissingRequiredSignature);
     }
 
-    let (user_pda, _user_bump_seed) = Pubkey::find_program_address(
-        &[initializer.key.as_ref(), user_pubkey.as_bytes().as_ref()],
-        program_id,
-    );
-
-    if user_pda != *user_info.key {
-        msg!("Invalid seeds for User PDA");
+    if drift::ID != *drift_program.key {
+        msg!("Invalid Drift Program");
         return Err(ProgramError::InvalidArgument);
     }
 
-    let total_len: usize =
-        1 + 4 + (4 + user_pubkey.len()) + (4 + fund_status.len()) + (4 + fund_status.len());
-    if total_len > 1000 {
-        msg!("Data length is larger than 1000 bytes");
-        return Err(ErrorCode::InvalidDataLength.into());
+    let (vault_depositor_pda, _) =
+        VaultDepositor::get_pda(&vault_account.key, &authority.key, program_id);
+
+    if vault_depositor_pda != *vault_depositor_account.key {
+        msg!("Invalid seeds for Vault Depositor PDA");
+        return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("checking if user account is initialized");
+    let mut vault = Vault::get(vault_account);
+    let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 
-    msg!("unpacking state account");
-    let account_data_result =
-        try_from_slice_unchecked::<UserInfoAccountState>(&user_info.data.borrow());
+    let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
-    let account_data = match account_data_result {
-        Ok(data) => {
-            msg!("user pubkey: {}", data.user_pubkey);
-
-            msg!("Account is already initialized");
-
-            msg!("Checking Balance before withdraw");
-            if data.amount < amount {
-                msg!(
-                    "Error: Withdrawal amount ({}) is greater than the available balance ({})",
-                    amount,
-                    data.amount
-                );
-                return Err(ProgramError::InsufficientFunds);
-            }
-
-            msg!("Updating the acccount");
-
-            msg!("UserInfo before update:");
-            msg!("vault_id: {}", data.vault_id);
-            msg!("user_pubkey: {}", data.user_pubkey);
-            msg!("amount: {}", data.amount);
-            msg!("fund_status: {}", data.fund_status);
-            msg!("bot_status: {}", data.bot_status);
-
-            let mut updated_data = data;
-            updated_data.vault_id = vault_id.clone();
-            updated_data.amount -= amount;
-            updated_data.fund_status = fund_status;
-            updated_data.bot_status = bot_status;
-
-            msg!("UserInfo after update:");
-            msg!("vault_id: {}", updated_data.vault_id);
-            msg!("user_pubkey: {}", updated_data.user_pubkey);
-            msg!("amount: {}", updated_data.amount);
-            msg!("fund_status: {}", updated_data.fund_status);
-            msg!("bot_status: {}", updated_data.bot_status);
-
-            updated_data
-        }
-        Err(e) => {
-            msg!("Error unpacking account data: {:?}", e);
-            msg!("Account is not initialized");
-
-            return Err(ErrorCode::UninitializedAccount.into());
-        }
+    // Load maps with proper account references and types
+    let AccountMaps {
+        perp_market_map,
+        spot_market_map,
+        mut oracle_map,
+    } = match load_maps(
+        &mut accounts[9..11].iter().peekable(),
+        &BTreeSet::new(),
+        &writable_spot_market_set,
+        clock.slot,
+        None,
+    ) {
+        Ok(maps) => maps,
+        Err(e) => return Err(ProgramError::Custom(e as u32)),
     };
 
-    msg!("serializing account");
-    account_data.serialize(&mut &mut user_info.data.borrow_mut()[..])?;
-    msg!("state account serialized");
+    // User details
+    let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
+    msg!("User Details:");
+    msg!("  Authority: {}", user.authority);
+    msg!("  Name: {}", bytes32_to_string(user.name));
 
-    let (treasury_pda, _treasury_bump_seed) =
-        Pubkey::find_program_address(&[b"treasury", vault_id.as_bytes().as_ref()], program_id);
+    let vault_equity = vault
+        .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
+        .map_err(wrap_drift_error)?;
 
-    msg!("Treasury PDA: {}", treasury_pda);
+    msg!("vault_equity: {:?}", vault_equity);
 
-    if treasury_pda != *treasury.key {
-        msg!("Invalid seeds for Treasury PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    let (user_withdraw_amount, total_deductions) =
+        vault_depositor.withdraw(vault_equity, &mut vault, clock.unix_timestamp)?;
 
-    let total_amount = amount;
+    msg!("user_withdraw_amount: {}", user_withdraw_amount);
 
-    const FEE_PERCENTAGE: u64 = 2;
-    let fees = (amount * FEE_PERCENTAGE + 99) / 100;
-    amount -= fees;
+    Vault::save(&vault, vault_account)?;
+    VaultDepositor::save(&vault_depositor, vault_depositor_account)?;
 
-    let (vault_pda, vault_bump_seed) =
-        Pubkey::find_program_address(&[vault_id.as_bytes().as_ref()], program_id);
+    drift_withdraw(
+        &vault,
+        user_withdraw_amount + total_deductions,
+        drift_program,
+        drift_state,
+        drift_user,
+        drift_user_stats,
+        vault_account,
+        drift_spot_market_vault,
+        drift_signer,
+        vault_token_account,
+        token_program,
+        drift_oracle,
+        drift_spot_market,
+    )?;
 
-    msg!("Vault PDA: {}", vault_pda);
+    transfer_fees_from_vault(
+        &vault,
+        total_deductions,
+        token_program,
+        user_token_account,
+        treasury_token_account,
+        authority,
+        mint,
+    )?;
 
-    if vault_pda != *vault.key {
-        msg!("Invalid seeds for Vault PDA");
-        return Err(ProgramError::InvalidArgument);
-    }
+    transfer_to_user(
+        &vault,
+        user_withdraw_amount,
+        token_program,
+        user_token_account,
+        vault_token_account,
+        vault_account,
+        mint,
+    )?;
 
-    msg!("Withdrawing from Drift to Vault");
-    let accounts_meta = vec![
+    Ok(())
+}
+
+/// Executes withdraw from Drift protocol
+fn drift_withdraw<'a>(
+    vault: &Vault,
+    amount: u64,
+    // Individual accounts
+    drift_program: &AccountInfo<'a>,
+    drift_state: &AccountInfo<'a>,
+    drift_user: &AccountInfo<'a>,
+    drift_user_stats: &AccountInfo<'a>,
+    vault_account: &AccountInfo<'a>,
+    drift_spot_market_vault: &AccountInfo<'a>,
+    drift_signer: &AccountInfo<'a>,
+    vault_token_account: &AccountInfo<'a>,
+    token_program: &AccountInfo<'a>,
+    drift_oracle: &AccountInfo<'a>,
+    drift_spot_market: &AccountInfo<'a>,
+) -> ProgramResult {
+    msg!("Withdrawing from Drift to Vault...");
+
+     let accounts_meta = vec![
         AccountMeta {
             pubkey: *drift_state.key,
             is_signer: false,
@@ -182,7 +211,7 @@ pub fn withdraw(
             is_writable: true,
         },
         AccountMeta {
-            pubkey: *vault.key,
+            pubkey: *vault_account.key,
             is_signer: true,
             is_writable: true,
         },
@@ -219,8 +248,8 @@ pub fn withdraw(
     ];
 
     let args = WithdrawIxArgs {
-        market_index,
-        amount: total_amount,
+        market_index: vault.spot_market_index,
+        amount,
         reduce_only: false,
     };
 
@@ -231,14 +260,13 @@ pub fn withdraw(
         accounts: accounts_meta,
         data: data.try_to_vec()?,
     };
-
     invoke_signed(
         &ix,
         &[
             drift_state.clone(),
             drift_user.clone(),
             drift_user_stats.clone(),
-            vault.clone(),
+            vault_account.clone(),
             drift_spot_market_vault.clone(),
             drift_signer.clone(),
             vault_token_account.clone(),
@@ -247,49 +275,10 @@ pub fn withdraw(
             drift_spot_market.clone(),
             drift_program.clone(),
         ],
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
-
-    msg!("Depositing Fees to Treasury Pda...");
-    invoke_signed(
-        &instruction::transfer(
-            &token_program.key,
-            &vault_token_account.key,
-            &treasury_token_account.key,
-            &vault.key,
-            &[vault.key],
-            fees,
-        )?,
-        &[
-            mint.clone(),
-            vault_token_account.clone(),
-            treasury_token_account.clone(),
-            vault.clone(),
-            token_program.clone(),
-        ],
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
-
-    msg!("Withdrawing from Vault Pda to {}", initializer.key);
-
-    invoke_signed(
-        &instruction::transfer(
-            &token_program.key,
-            &vault_token_account.key,
-            &user_token_account.key,
-            &vault.key,
-            &[vault.key],
-            amount,
-        )?,
-        &[
-            mint.clone(),
-            vault_token_account.clone(),
-            user_token_account.clone(),
-            vault.clone(),
-            token_program.clone(),
-        ],
-        &[&[vault_id.as_bytes().as_ref(), &[vault_bump_seed]]],
-    )?;
-
-    Ok(())
+        &[&[
+            b"vault",
+            bytes32_to_string(vault.name).as_ref(),
+            &[vault.bump],
+        ]],
+    )
 }

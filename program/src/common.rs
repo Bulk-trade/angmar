@@ -1,10 +1,20 @@
 use anchor_lang::{Owner, ZeroCopy};
 use arrayref::array_ref;
+use borsh::BorshSerialize;
 use bytemuck::from_bytes;
 use serde::Serialize;
 use serde_json::to_string;
-use solana_program::{account_info::AccountInfo, log::sol_log_data, msg, program_error::ProgramError};
-use borsh::BorshSerialize;
+use solana_program::{
+    account_info::AccountInfo,
+    entrypoint::ProgramResult,
+    log::sol_log_data,
+    msg,
+    program::{invoke, invoke_signed},
+    program_error::ProgramError,
+};
+use spl_token::instruction;
+
+use crate::state::Vault;
 
 /// Deserializes a zero-copy account from the given account data.
 ///
@@ -108,4 +118,128 @@ pub fn log_accounts(accounts: &[(&AccountInfo, &str)]) {
 pub fn log_data<T: Serialize + BorshSerialize>(record: &T) -> Result<(), ProgramError> {
     sol_log_data(&[&record.try_to_vec()?]);
     Ok(())
+}
+
+pub fn transfer_fees<'a>(
+    fees: u64,
+    token_program: &AccountInfo<'a>,
+    user_token_account: &AccountInfo<'a>,
+    treasury_token_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+) -> ProgramResult {
+    msg!("Depositing Fees to Treasury Pda...");
+    invoke(
+        &instruction::transfer(
+            &token_program.key,
+            &user_token_account.key,
+            &treasury_token_account.key,
+            &authority.key,
+            &[authority.key],
+            fees,
+        )?,
+        &[
+            mint.clone(),
+            user_token_account.clone(),
+            treasury_token_account.clone(),
+            authority.clone(),
+            token_program.clone(),
+        ],
+    )
+}
+
+pub fn transfer_fees_from_vault<'a>(
+    vault: &Vault,
+    fees: u64,
+    token_program: &AccountInfo<'a>,
+    user_token_account: &AccountInfo<'a>,
+    treasury_token_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+) -> ProgramResult {
+    msg!("Depositing Fees to Treasury Pda...");
+    invoke_signed(
+        &instruction::transfer(
+            &token_program.key,
+            &user_token_account.key,
+            &treasury_token_account.key,
+            &authority.key,
+            &[authority.key],
+            fees,
+        )?,
+        &[
+            mint.clone(),
+            user_token_account.clone(),
+            treasury_token_account.clone(),
+            authority.clone(),
+            token_program.clone(),
+        ],
+        &[&[
+            b"vault",
+            bytes32_to_string(vault.name).as_ref(),
+            &[vault.bump],
+        ]],
+    )
+}
+
+pub fn transfer_to_vault<'a>(
+    amount: u64,
+    token_program: &AccountInfo<'a>,
+    user_token_account: &AccountInfo<'a>,
+    vault_token_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+) -> ProgramResult {
+    msg!("Transfering to Vault Pda...");
+    invoke(
+        &instruction::transfer(
+            &token_program.key,
+            &user_token_account.key,
+            &vault_token_account.key,
+            &authority.key,
+            &[authority.key],
+            amount,
+        )?,
+        &[
+            mint.clone(),
+            user_token_account.clone(),
+            vault_token_account.clone(),
+            authority.clone(),
+            token_program.clone(),
+        ],
+    )
+}
+
+pub fn transfer_to_user<'a>(
+    vault: &Vault,
+    amount: u64,
+    token_program: &AccountInfo<'a>,
+    user_token_account: &AccountInfo<'a>,
+    vault_token_account: &AccountInfo<'a>,
+    vault_account: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+) -> ProgramResult {
+    msg!("Transfering to Vault Pda...");
+    invoke_signed(
+        &instruction::transfer(
+            &token_program.key,
+            &vault_token_account.key,
+            &user_token_account.key,
+            &vault_account.key,
+            &[vault_account.key],
+            amount,
+        )?,
+        &[
+            mint.clone(),
+            vault_token_account.clone(),
+            user_token_account.clone(),
+            vault_account.clone(),
+            token_program.clone(),
+        ],
+        &[&[
+            b"vault",
+            bytes32_to_string(vault.name).as_ref(),
+            &[vault.bump],
+        ]],
+    )
 }

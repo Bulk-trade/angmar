@@ -1,4 +1,7 @@
-use crate::common::{bytes32_to_string, deserialize_zero_copy, log_accounts, log_data, log_params};
+use crate::common::{
+    bytes32_to_string, deserialize_zero_copy, log_accounts, log_data, log_params, transfer_fees,
+    transfer_to_vault,
+};
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::{wrap_drift_error, ErrorCode};
 use crate::state::{Vault, VaultDepositor, VaultDepositorAction, VaultDepositorRecord};
@@ -7,7 +10,6 @@ use drift::instructions::optional_accounts::{load_maps, AccountMaps};
 use drift::state::spot_market_map::get_writable_spot_market_set;
 use drift::state::user::User;
 use solana_program::instruction::{AccountMeta, Instruction};
-use solana_program::program::invoke;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -17,7 +19,6 @@ use solana_program::{
     pubkey::Pubkey,
     sysvar::{clock::Clock, Sysvar},
 };
-use spl_token::instruction;
 use std::collections::BTreeSet;
 
 pub fn deposit<'info>(
@@ -53,7 +54,6 @@ pub fn deposit<'info>(
     let mint = next_account_info(&mut iter)?;
 
     let token_program = next_account_info(&mut iter)?;
-    let system_program = next_account_info(&mut iter)?;
 
     log_accounts(&[
         (vault_account, "Vault"),
@@ -75,7 +75,6 @@ pub fn deposit<'info>(
         (mint, "Mint"),
         // System accounts
         (token_program, "Token Program"),
-        (system_program, "System Program"),
     ]);
 
     if !authority.is_signer {
@@ -106,10 +105,6 @@ pub fn deposit<'info>(
     msg!("unpacking vault state account");
     let mut vault = Vault::get(vault_account);
 
-    // Create array of references to input accounts
-    //let spot_markets = slice::from_ref(drift_oracle);
-    // Directly slice the necessary multiple accounts example  &mut accounts[8..10].iter().peekable()
-    //let mut remaining_accounts_iter = spot_markets.iter().peekable();
     let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
     // Load maps with proper account references and types
@@ -165,13 +160,12 @@ pub fn deposit<'info>(
     let total_vault_shares_before = vault.total_shares;
     let user_vault_shares_before = vault.user_shares;
 
-    let management_fee = vault.management_fee;
-    let fees = Vault::calculate_fees(amount, management_fee);
+    let fees = vault.calculate_fees(amount);
     amount -= fees;
     msg!("Fees: {}", fees);
     msg!("Deposit amount after fees: {}", amount);
 
-    let new_shares = VaultDepositor::calculate_shares_for_deposit(
+    let new_shares = VaultDepositor::calculate_amount_to_shares(
         amount,
         total_vault_shares_before,
         vault_equity,
@@ -208,8 +202,9 @@ pub fn deposit<'info>(
         total_vault_shares_after: vault.total_shares,
         user_vault_shares_after: vault.user_shares,
         profit_share: vault.profit_share,
+        profit_share_amount: 0,
         management_fee: fees,
-        management_fee_shares: vault.management_fee,
+        management_fee_amount: vault.management_fee,
     };
 
     log_data(&record)?;
@@ -252,62 +247,6 @@ pub fn deposit<'info>(
     )?;
 
     Ok(())
-}
-
-fn transfer_fees<'a>(
-    fees: u64,
-    token_program: &AccountInfo<'a>,
-    user_token_account: &AccountInfo<'a>,
-    treasury_token_account: &AccountInfo<'a>,
-    authority: &AccountInfo<'a>,
-    mint: &AccountInfo<'a>,
-) -> ProgramResult {
-    msg!("Depositing Fees to Treasury Pda...");
-    invoke(
-        &instruction::transfer(
-            &token_program.key,
-            &user_token_account.key,
-            &treasury_token_account.key,
-            &authority.key,
-            &[authority.key],
-            fees,
-        )?,
-        &[
-            mint.clone(),
-            user_token_account.clone(),
-            treasury_token_account.clone(),
-            authority.clone(),
-            token_program.clone(),
-        ],
-    )
-}
-
-fn transfer_to_vault<'a>(
-    amount: u64,
-    token_program: &AccountInfo<'a>,
-    user_token_account: &AccountInfo<'a>,
-    vault_token_account: &AccountInfo<'a>,
-    authority: &AccountInfo<'a>,
-    mint: &AccountInfo<'a>,
-) -> ProgramResult {
-    msg!("Transfering to Vault Pda...");
-    invoke(
-        &instruction::transfer(
-            &token_program.key,
-            &user_token_account.key,
-            &vault_token_account.key,
-            &authority.key,
-            &[authority.key],
-            amount,
-        )?,
-        &[
-            mint.clone(),
-            user_token_account.clone(),
-            vault_token_account.clone(),
-            authority.clone(),
-            token_program.clone(),
-        ],
-    )
 }
 
 fn drift_deposit<'a>(

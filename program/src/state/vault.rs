@@ -7,14 +7,16 @@ use drift::state::oracle_map::OracleMap;
 use drift::state::perp_market_map::PerpMarketMap;
 use drift::state::spot_market_map::SpotMarketMap;
 use drift::state::user::User;
+use drift::validate;
 use solana_program::account_info::AccountInfo;
 use solana_program::borsh0_10::try_from_slice_unchecked;
 use solana_program::entrypoint::ProgramResult;
+use solana_program::msg;
 use solana_program::program_pack::Sealed;
 use solana_program::pubkey::Pubkey;
 use std::result::Result;
 
-use crate::constants::PERCENTAGE_PRECISION;
+use crate::constants::PERCENTAGE_PRECISION_U64;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vault {
@@ -109,20 +111,21 @@ impl Vault {
         perp_market_map: &PerpMarketMap,
         spot_market_map: &SpotMarketMap,
         oracle_map: &mut OracleMap,
-    ) -> Result<u64, ErrorCode> {
-        let (vault_equity, _all_oracles_valid) =
+    ) -> Result<u64, drift::error::ErrorCode> {
+        let (vault_equity, all_oracles_valid) =
             calculate_user_equity(user, perp_market_map, spot_market_map, oracle_map)?;
 
-        // validate!(
-        //     all_oracles_valid,
-        //     ErrorCode::InvalidEquityValue,
-        //     "oracle invalid"
-        // )?;
-        // validate!(
-        //     vault_equity >= 0,
-        //     ErrorCode::InvalidEquityValue,
-        //     "vault equity negative"
-        // )?;
+        validate!(
+            all_oracles_valid,
+            drift::error::ErrorCode::InvalidOracle,
+            "oracle invalid"
+        )?;
+
+        validate!(
+            vault_equity >= 0,
+            drift::error::ErrorCode::InvalidOracle,
+            "vault equity negative"
+        )?;
 
         let spot_market = spot_market_map.get_ref(&self.spot_market_index)?;
         let spot_market_precision = spot_market.get_precision().cast::<i128>()?;
@@ -137,10 +140,10 @@ impl Vault {
             .cast::<u64>()?)
     }
 
-    pub fn calculate_fees(amount: u64, management_fee: u64) -> u64 {
+    pub fn calculate_fees(&self, amount: u64) -> u64 {
         let numerator = amount
-            .checked_mul(management_fee)
+            .checked_mul(self.management_fee)
             .expect("Fee calculation overflow");
-        (numerator + PERCENTAGE_PRECISION - 1) / PERCENTAGE_PRECISION
+        (numerator + PERCENTAGE_PRECISION_U64 - 1) / PERCENTAGE_PRECISION_U64
     }
 }

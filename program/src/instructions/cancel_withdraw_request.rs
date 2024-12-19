@@ -88,8 +88,7 @@ pub fn cancel_withdraw_request<'info>(
     msg!("  Name: {}", bytes32_to_string(user.name));
 
     let vault_equity = vault
-        .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
-        .map_err(wrap_drift_error)?;
+        .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map).map_err(wrap_drift_error)?;
 
     msg!("vault_equity: {:?}", vault_equity);
 

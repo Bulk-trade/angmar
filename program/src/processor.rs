@@ -49,23 +49,7 @@ pub fn process_instruction<'a>(
             request_withdraw(program_id, accounts, amount)
         }
         VaultInstruction::CancelWithdrawRequest {} => cancel_withdraw_request(program_id, accounts),
-        VaultInstruction::Withdraw {
-            vault_id,
-            user_pubkey,
-            amount,
-            fund_status,
-            bot_status,
-            market_index,
-        } => withdraw(
-            program_id,
-            accounts,
-            vault_id,
-            user_pubkey,
-            amount,
-            fund_status,
-            bot_status,
-            market_index,
-        ),
+        VaultInstruction::Withdraw {} => withdraw(program_id, accounts),
         VaultInstruction::InitializeDrift { vault_id } => {
             initialize_drift(program_id, accounts, vault_id)
         }
