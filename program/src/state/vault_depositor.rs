@@ -213,6 +213,14 @@ impl VaultDepositor {
             "Requested shares = 0"
         )?;
 
+        let withdrawable_shares = self.calculate_withdrawable_shares(now, vault.lock_in_period)?;
+
+        validate!(
+            shares <= withdrawable_shares,
+            ErrorCode::InvalidVaultWithdrawSize,
+            "Requested shares greater then withdrawable_shares"
+        )?;
+
         let vault_shares_before: u128 = self.vault_shares;
         let total_vault_shares_before = vault.total_shares;
         let user_vault_shares_before = vault.user_shares;
@@ -390,6 +398,8 @@ impl VaultDepositor {
             .safe_sub(withdraw_amount.cast().map_err(wrap_drift_error)?)
             .map_err(wrap_drift_error)?;
 
+        self.remove_shares(shares)?;
+
         vault.manager_total_fee = vault
             .manager_total_fee
             .checked_add(management_fee)
@@ -491,6 +501,128 @@ impl VaultDepositor {
         } else {
             Ok(0)
         }
+    }
+
+    /// Calculates withdrawable shares based on lock-in period
+    ///
+    /// # Arguments
+    /// * `now` - Current Unix timestamp
+    /// * `lock_in_period` - Period in seconds that deposits must be locked
+    ///
+    /// # Returns
+    /// * `Result<u128, ProgramError>` - Total withdrawable shares or error
+    pub fn calculate_withdrawable_shares(
+        &self,
+        current_timestamp: i64,
+        lock_in_period: u64,
+    ) -> Result<u128, ProgramError> {
+        msg!(
+            "Calculating withdrawable shares at timestamp {}",
+            current_timestamp
+        );
+
+        // Sum shares from deposits that have passed their lock-in period
+        let withdrawable_shares = self
+            .deposits
+            .iter()
+            .filter_map(|deposit| {
+                // Calculate unlock time for this deposit
+                let unlock_time = deposit
+                    .ts
+                    .checked_add(lock_in_period as i64)
+                    .ok_or(ErrorCode::MathError)
+                    .ok()?;
+
+                // Include shares if unlock time has passed
+                if current_timestamp >= unlock_time {
+                    msg!(
+                        "Deposit of {} shares unlocked at {} (deposited at {})",
+                        deposit.shares,
+                        unlock_time,
+                        deposit.ts
+                    );
+                    Some(deposit.shares)
+                } else {
+                    msg!(
+                        "Deposit of {} shares still locked until {}",
+                        deposit.shares,
+                        unlock_time
+                    );
+                    None
+                }
+            })
+            .sum();
+
+        msg!(
+            "Total withdrawable shares: {} at timestamp {}",
+            withdrawable_shares,
+            current_timestamp
+        );
+
+        Ok(withdrawable_shares)
+    }
+
+    pub fn remove_shares(&mut self, shares_to_remove: u128) -> Result<(), ProgramError> {
+        // Calculate and log total shares before removal
+        let total_shares_before: u128 = self.deposits.iter().map(|d| d.shares).sum();
+
+        msg!(
+            "Removing {} shares from total {} shares",
+            shares_to_remove,
+            total_shares_before
+        );
+
+        let mut remaining_shares = shares_to_remove;
+
+        // Sort deposits by timestamp (oldest first)
+        self.deposits.sort_by_key(|d| d.ts);
+
+        // Track indices to remove
+        let mut indices_to_remove = Vec::new();
+
+        // Process deposits from oldest to newest
+        for (i, deposit) in self.deposits.iter_mut().enumerate() {
+            if remaining_shares == 0 {
+                break;
+            }
+
+            if deposit.shares <= remaining_shares {
+                // Remove entire deposit
+                remaining_shares = remaining_shares
+                    .checked_sub(deposit.shares)
+                    .ok_or(ErrorCode::MathError)?;
+                indices_to_remove.push(i);
+            } else {
+                // Partial removal
+                deposit.shares = deposit
+                    .shares
+                    .checked_sub(remaining_shares)
+                    .ok_or(ErrorCode::MathError)?;
+                remaining_shares = 0;
+            }
+        }
+
+        // Remove fully withdrawn deposits
+        for &index in indices_to_remove.iter().rev() {
+            self.deposits.remove(index);
+        }
+
+        // Validate all shares were removed
+        if remaining_shares > 0 {
+            msg!("Not enough shares in deposits to remove");
+            return Err(ErrorCode::InsufficientShares.into());
+        }
+
+        // Calculate and log remaining shares after removal
+        let total_shares_after: u128 = self.deposits.iter().map(|d| d.shares).sum();
+
+        msg!(
+            "After removal: {} shares remaining (removed {})",
+            total_shares_after,
+            total_shares_before - total_shares_after
+        );
+
+        Ok(())
     }
 }
 

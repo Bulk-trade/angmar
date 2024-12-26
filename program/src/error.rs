@@ -53,6 +53,9 @@ pub enum ErrorCode {
 
     #[error("InsufficientWithdraw")]
     InsufficientWithdraw,
+
+    #[error("InsufficientShares")]
+    InsufficientShares,
 }
 
 impl From<ErrorCode> for ProgramError {
