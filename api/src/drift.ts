@@ -172,6 +172,11 @@ export async function getDriftDepositKeys(
             isSigner: false,
             isWritable: false,
         },
+        {
+            pubkey: SystemProgram.programId,
+            isSigner: false,
+            isWritable: false,
+        },
     ]
 }
 

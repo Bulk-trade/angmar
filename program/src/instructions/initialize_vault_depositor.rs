@@ -79,7 +79,7 @@ fn initialize_depositor<'a>(
     vault_depositor_bump_seed: u8,
 ) -> Result<VaultDepositor, ProgramError> {
     //Create depositor pda
-    let account_len: usize = 1000;
+    let account_len: usize = VaultDepositor::INITIAL_SIZE;
 
     // Calculate rent
     let rent = Rent::get()?;

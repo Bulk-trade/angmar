@@ -1,11 +1,14 @@
 use crate::common::{deserialize_zero_copy, log_accounts, transfer_fees, transfer_to_vault};
 use crate::drift::{DepositIxArgs, DepositIxData};
 use crate::error::wrap_drift_error;
-use crate::state::{Vault, VaultDepositor};
+use crate::state::{DepositInfo, Vault, VaultDepositor};
 use drift::instructions::optional_accounts::{load_maps, AccountMaps};
 use drift::state::spot_market_map::get_writable_spot_market_set;
 use drift::state::user::User;
 use solana_program::instruction::{AccountMeta, Instruction};
+use solana_program::program::invoke;
+use solana_program::rent::Rent;
+use solana_program::system_instruction;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -102,6 +105,17 @@ pub fn deposit<'info>(
     let mut vault = Vault::get(vault_account);
     let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 
+    let need_resize = vault_depositor.does_need_resize(vault_depositor_account.data.borrow().len());
+
+    if need_resize {
+        resize_vault_depositor_account(
+            vault_depositor_account,
+            authority,
+            system_program,
+            2, // Space for 2 additional DepositInfo
+        )?;
+    }
+
     let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
     // Load maps with proper account references and types
@@ -130,19 +144,6 @@ pub fn deposit<'info>(
 
     let (deposit_amount, fees) =
         vault_depositor.deposit(amount, vault_equity, &mut vault, timestamp)?;
-
-    // let vault_depositor_data = vault_depositor_account.try_borrow_data()?;
-    // let new_size: usize = vault_depositor_data.len() + mem::size_of::<DepositInfo>();
-
-    //reallocate memory to vault_depositor
-    // invoke(
-    //     &system_instruction::allocate(&vault_depositor.pubkey, new_size as u64),
-    //     &[vault_depositor_account.clone(), system_program.clone()],
-    // )?;
-
-    // vault_depositor
-    //     .deposits
-    //     .push(DepositInfo::new(timestamp, new_shares));
 
     VaultDepositor::save(&vault_depositor, vault_depositor_account)?;
     Vault::save(&vault, vault_account)?;
@@ -282,4 +283,54 @@ fn drift_deposit<'a>(
         ],
         &[&[b"vault", name.as_ref(), &[vault_bump_seed]]],
     )
+}
+
+/// Resizes the vault depositor account to accommodate new deposits
+///
+/// # Arguments
+/// * `vault_depositor_account` - Account to resize
+/// * `authority` - Authority that pays for reallocation
+/// * `system_program` - System program for CPI
+/// * `additional_items` - Number of additional DepositInfo items to accommodate
+fn resize_vault_depositor_account<'a>(
+    vault_depositor_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    system_program: &AccountInfo<'a>,
+    additional_items: usize,
+) -> ProgramResult {
+    msg!("Resizing vault depositor account...");
+
+    // Calculate new size
+    let current_size = vault_depositor_account.data.borrow().len();
+    let new_size = current_size + DepositInfo::SIZE * additional_items;
+
+    msg!("Current size: {}, New size: {}", current_size, new_size);
+
+    // Calculate rent
+    let rent = Rent::get()?;
+    let new_minimum_balance = rent.minimum_balance(new_size);
+    let lamports_diff = new_minimum_balance.saturating_sub(vault_depositor_account.lamports());
+
+    // Transfer additional rent if needed
+    if lamports_diff > 0 {
+        msg!("Transferring {} lamports for realloc rent", lamports_diff);
+        invoke(
+            &system_instruction::transfer(
+                authority.key,
+                vault_depositor_account.key,
+                lamports_diff,
+            ),
+            &[
+                authority.clone(),
+                vault_depositor_account.clone(),
+                system_program.clone(),
+            ],
+        )?;
+    }
+
+    // Reallocate account
+    vault_depositor_account.realloc(new_size, false)?;
+
+    msg!("Successfully resized account to {} bytes", new_size);
+    Ok(())
 }

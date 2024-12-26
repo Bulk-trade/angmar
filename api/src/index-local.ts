@@ -198,16 +198,16 @@ app.listen(PORT, async () => {
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    const vault_name = 'bulk3';
+    const vault_name = 'bulk';
 
     console.log('Admin SIGNER', admin.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    //await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 5 * 60, 5 * 60, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
+    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 5 * 60, 5 * 60, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
-    await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+    // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-    // await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+    await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
     // await updateDelegate(connection, admin, BULK_PROGRAM_ID, vault_name, user.publicKey.toString(), 0)
 

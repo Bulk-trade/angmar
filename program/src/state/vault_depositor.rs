@@ -1,3 +1,5 @@
+use std::mem;
+
 use super::{Vault, WithdrawRequest};
 use crate::{
     common::{log_data, log_params},
@@ -51,7 +53,8 @@ pub struct VaultDepositor {
 impl Sealed for VaultDepositor {}
 
 impl VaultDepositor {
-    
+    pub const INITIAL_SIZE: usize = mem::size_of::<Self>() + mem::size_of::<DepositInfo>() * 10 + 8;
+
     pub fn get_vault_depositor_signer_seeds<'a>(
         vault: &'a [u8],
         authority: &'a [u8],
@@ -60,9 +63,19 @@ impl VaultDepositor {
         [b"vault_depositor", vault, authority, bump]
     }
 
-    // pub fn get_size<'a>(self) -> usize{
+    pub fn get_current_size(&self) -> usize {
+        // Fixed struct size
+        let base_size = mem::size_of::<Self>();
 
-    // }
+        // Dynamic size from deposits Vec
+        let deposits_size = self.deposits.len() * DepositInfo::SIZE;
+
+        base_size + deposits_size
+    }
+
+    pub fn does_need_resize(&self, account_size: usize) -> bool {
+        account_size < self.get_current_size() + DepositInfo::SIZE //Current size plus one more DepositInfo struct
+    }
 
     pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
@@ -142,6 +155,7 @@ impl VaultDepositor {
         self.total_deposits = self.total_deposits.saturating_add(amount);
         self.net_deposits = self.net_deposits.saturating_add(amount);
         self.vault_shares = self.vault_shares.saturating_add(new_shares);
+        self.deposits.push(DepositInfo::new(now, new_shares));
 
         vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
         vault.total_deposits = vault.total_deposits.saturating_add(amount);
@@ -489,6 +503,8 @@ pub struct DepositInfo {
 }
 
 impl DepositInfo {
+    pub const SIZE: usize = mem::size_of::<DepositInfo>();
+
     pub fn new(ts: i64, shares: u128) -> Self {
         Self { ts, shares }
     }

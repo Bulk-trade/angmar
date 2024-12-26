@@ -8,7 +8,7 @@ use solana_program::sysvar::slot_history::ProgramError;
 
 use super::Vault;
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub struct WithdrawRequest {
     /// request shares of vault withdraw
     pub shares: u128,
