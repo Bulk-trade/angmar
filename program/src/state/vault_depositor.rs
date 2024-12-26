@@ -51,6 +51,19 @@ pub struct VaultDepositor {
 impl Sealed for VaultDepositor {}
 
 impl VaultDepositor {
+    
+    pub fn get_vault_depositor_signer_seeds<'a>(
+        vault: &'a [u8],
+        authority: &'a [u8],
+        bump: &'a [u8],
+    ) -> [&'a [u8]; 4] {
+        [b"vault_depositor", vault, authority, bump]
+    }
+
+    // pub fn get_size<'a>(self) -> usize{
+
+    // }
+
     pub fn get_pda<'a>(vault: &Pubkey, authority: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"vault_depositor", vault.as_ref(), authority.as_ref()],

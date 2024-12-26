@@ -69,11 +69,6 @@ pub fn initialize_drift_vault_with_bulk<'a>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    let account_len: usize = 1000;
-
-    let rent_cal = Rent::get()?;
-    let rent_lamports = rent_cal.minimum_balance(account_len);
-
     initialize_vault(
         program_id,
         manager,
@@ -83,8 +78,6 @@ pub fn initialize_drift_vault_with_bulk<'a>(
         drift_user,
         &params,
         system_program,
-        account_len,
-        rent_lamports,
     )?;
 
     initialize_treasury(
@@ -95,8 +88,6 @@ pub fn initialize_drift_vault_with_bulk<'a>(
         treasury_token_account,
         system_program,
         &params,
-        account_len,
-        rent_lamports,
     )?;
 
     initialize_user_stats(
@@ -130,6 +121,7 @@ pub fn initialize_drift_vault_with_bulk<'a>(
 #[derive(Serialize)]
 pub struct VaultParams {
     pub name: String,
+    pub lock_in_period: u64,
     pub redeem_period: u64,
     pub max_tokens: u64,
     pub management_fee: u64,
@@ -149,8 +141,6 @@ fn initialize_vault<'a>(
     drift_user: &'a AccountInfo<'a>,
     params: &VaultParams,
     system_program: &'a AccountInfo<'a>,
-    account_len: usize,
-    rent_lamports: u64,
 ) -> ProgramResult {
     let (vault_pda, vault_bump_seed) = Vault::get_pda(&params.name, program_id);
 
@@ -158,6 +148,14 @@ fn initialize_vault<'a>(
         msg!("Invalid seeds for Vault PDA");
         return Err(ProgramError::InvalidArgument);
     }
+
+    let account_len: usize = Vault::SIZE;
+
+    let rent_cal = Rent::get()?;
+    let rent_lamports = rent_cal.minimum_balance(account_len);
+
+    let binding = [vault_bump_seed];
+    let signature_seeds = Vault::get_vault_signer_seeds(&params.name, &binding);
 
     invoke_signed(
         &system_instruction::create_account(
@@ -172,17 +170,12 @@ fn initialize_vault<'a>(
             vault_account.clone(),
             system_program.clone(),
         ],
-        &[&[
-            b"vault",
-            params.name.as_bytes().as_ref(),
-            &[vault_bump_seed],
-        ]],
+        &[&signature_seeds],
     )?;
 
     msg!("Vault created: {}", vault_pda);
 
     let mut vault = Vault::get(vault_account);
-    msg!("borrowed new account data");
 
     let name_32 = string_to_bytes32(&params.name);
     vault.name = name_32;
@@ -192,6 +185,7 @@ fn initialize_vault<'a>(
     vault.user_stats = *drift_user_stats.key;
     vault.user = *drift_user.key;
     vault.total_shares = 0;
+    vault.lock_in_period = params.lock_in_period;
     vault.redeem_period = params.redeem_period;
     vault.max_tokens = params.max_tokens;
 
@@ -229,8 +223,6 @@ fn initialize_treasury<'a>(
     treasury_token_account: &'a AccountInfo<'a>,
     system_program: &'a AccountInfo<'a>,
     params: &VaultParams,
-    account_len: usize,
-    rent_lamports: u64,
 ) -> ProgramResult {
     let (treasury_pda, treasury_bump_seed) = Treasury::get_pda(&params.name, program_id);
 
@@ -238,6 +230,14 @@ fn initialize_treasury<'a>(
         msg!("Invalid seeds for Treasury PDA");
         return Err(ProgramError::InvalidArgument);
     }
+
+    let account_len: usize = Treasury::SIZE;
+
+    let rent_cal = Rent::get()?;
+    let rent_lamports = rent_cal.minimum_balance(account_len);
+
+    let binding = [treasury_bump_seed];
+    let signature_seeds = Treasury::get_treasury_signer_seeds(&params.name, &binding);
 
     invoke_signed(
         &system_instruction::create_account(
@@ -252,11 +252,7 @@ fn initialize_treasury<'a>(
             treasury_account.clone(),
             system_program.clone(),
         ],
-        &[&[
-            b"treasury",
-            params.name.as_bytes().as_ref(),
-            &[treasury_bump_seed],
-        ]],
+        &[&signature_seeds],
     )?;
 
     msg!("Treasury created: {}", treasury_pda);

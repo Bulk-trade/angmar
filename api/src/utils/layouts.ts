@@ -13,6 +13,7 @@ export const vaultInstructionLayout = struct([
 export const initVaultInstuctionLayout = struct([
     u8("variant"),
     str("name"),
+    u64("lock_in_period"),
     u64("redeem_period"),
     u64("max_tokens"),
     u64("management_fee"),

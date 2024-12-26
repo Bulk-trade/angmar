@@ -46,6 +46,8 @@ pub struct Vault {
     pub last_fee_update_ts: u64,
     /// When the liquidation starts
     pub liquidation_start_ts: u64,
+    /// The period (in seconds) that deposits must remain in the vault before withdrawal can be requested.
+    pub lock_in_period: u64,
     /// The period (in seconds) that a vault depositor must wait after requesting a withdrawal to finalize withdrawal.
     pub redeem_period: u64,
     /// The sum of all outstanding withdraw requests
@@ -92,6 +94,12 @@ pub struct Vault {
 impl Sealed for Vault {}
 
 impl Vault {
+    pub const SIZE: usize = std::mem::size_of::<Vault>() + 8;
+
+    pub fn get_vault_signer_seeds<'a>(name: &'a str, bump: &'a [u8]) -> [&'a [u8]; 3] {
+        [b"vault", name.as_bytes(), bump]
+    }
+
     pub fn get_pda<'a>(name: &String, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"vault", name.as_bytes()], program_id)
     }

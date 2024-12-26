@@ -248,6 +248,7 @@ export async function initializeDriftWithBulk(
     programId: PublicKey,
     mint: PublicKey,
     vault_name: string,
+    lock_in_period: number,
     redeem_period: number,
     max_tokens: number,
     management_fee: number,
@@ -266,6 +267,7 @@ export async function initializeDriftWithBulk(
     const management_fee_bn = new BN(management_fee);
     const min_deposit_amount_bn = new BN(min_deposit_amount);
     const profit_share_bn = new BN(profit_share);
+    const lock_in_period_bn = new BN(lock_in_period);
     const redeem_period_bn = new BN(redeem_period);
     const max_tokens_bn = new BN(max_tokens);
     const hurdle_rate_bn = new BN(hurdle_rate);
@@ -274,6 +276,7 @@ export async function initializeDriftWithBulk(
         {
             variant: 0,
             name,
+            lock_in_period: lock_in_period_bn,
             redeem_period: redeem_period_bn,
             max_tokens: max_tokens_bn,
             management_fee: management_fee_bn,
@@ -289,17 +292,11 @@ export async function initializeDriftWithBulk(
     buffer = buffer.subarray(0, initVaultInstuctionLayout.getSpan(buffer));
 
 
-    const [vault] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), Buffer.from(vault_name)],
-        programId
-    );
+    const vault = getVaultPDA(vault_name, programId);
 
     console.log("Vault PDA is:", vault.toBase58());
 
-    const [treasury] = PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_name)],
-        programId
-    );
+    const treasury = getTreasuryPDA(vault_name, programId);
 
     console.log("Treasury PDA is:", treasury.toBase58());
 
@@ -1197,62 +1194,4 @@ export async function updateDelegate(
 
     // Handle the transaction response
     handleTransactionResponse(transactionResponse, signature);
-}
-
-export async function updateUserInfo(
-    signer: Keypair,
-    programId: PublicKey,
-    connection: Connection,
-    user_pubkey: string,
-    amount: number,
-) {
-    let buffer = Buffer.alloc(1000);
-    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
-    vaultInstructionLayout.encode(
-        {
-            variant: 1,
-            user_pubkey: pubKey,
-            amount: amount,
-            fund_status: FundStatus.Deposited,
-            bot_status: BotStatus.Init,
-        },
-        buffer
-    );
-
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
-
-    const [pda] = await PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
-        programId
-    );
-
-    console.log("PDA is:", pda.toBase58());
-
-    const transaction = new Transaction();
-
-    const instruction = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys: [
-            {
-                pubkey: signer.publicKey,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: pda,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
-    });
-
-    transaction.add(instruction);
-    const tx = await sendAndConfirmTransaction(connection, transaction, [signer]);
-    console.log(`https://solscan.io//tx/${tx}`);
 }

@@ -85,6 +85,13 @@ fn initialize_depositor<'a>(
     let rent = Rent::get()?;
     let rent_lamports = rent.minimum_balance(account_len);
 
+    let binding = [vault_depositor_bump_seed];
+    let signature_seeds = VaultDepositor::get_vault_depositor_signer_seeds(
+        vault_account_pubkey.as_ref(),
+        authority.key.as_ref(),
+        &binding,
+    );
+
     invoke_signed(
         &system_instruction::create_account(
             authority.key,
@@ -98,12 +105,7 @@ fn initialize_depositor<'a>(
             vault_depositor_account.clone(),
             system_program.clone(),
         ],
-        &[&[
-            b"vault_depositor",
-            vault_account_pubkey.as_ref(),
-            authority.key.as_ref(),
-            &[vault_depositor_bump_seed],
-        ]],
+        &[&signature_seeds],
     )?;
 
     msg!("Vault Depositor created: {}", vault_depositor_account.key);

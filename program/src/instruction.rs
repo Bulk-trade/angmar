@@ -10,6 +10,7 @@ pub enum VaultInstruction {
     },
     InitializeDriftWithBulk {
         name: String,
+        lock_in_period: u64,
         redeem_period: u64,
         max_tokens: u64,
         management_fee: u64,
@@ -57,6 +58,7 @@ pub enum VaultInstruction {
 #[derive(BorshDeserialize)]
 struct InitVaultPayload {
     name: String,
+    lock_in_period: u64,
     redeem_period: u64,
     max_tokens: u64,
     management_fee: u64,
@@ -95,6 +97,7 @@ impl VaultInstruction {
                 let payload = InitVaultPayload::try_from_slice(rest).unwrap();
                 Self::InitializeDriftWithBulk {
                     name: payload.name,
+                    lock_in_period: payload.lock_in_period,
                     redeem_period: payload.redeem_period,
                     max_tokens: payload.max_tokens,
                     management_fee: payload.management_fee,

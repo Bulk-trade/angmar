@@ -1,7 +1,7 @@
-use solana_program::borsh0_10::try_from_slice_unchecked;
-use solana_program::pubkey::Pubkey;
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::account_info::AccountInfo;
+use solana_program::borsh0_10::try_from_slice_unchecked;
+use solana_program::pubkey::Pubkey;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Treasury {
@@ -18,6 +18,12 @@ pub struct Treasury {
 }
 
 impl Treasury {
+    pub const SIZE: usize = std::mem::size_of::<Treasury>() + 8;
+
+    pub fn get_treasury_signer_seeds<'a>(name: &'a str, bump: &'a [u8]) -> [&'a [u8]; 3] {
+        [b"treasury", name.as_bytes(), bump]
+    }
+
     pub fn get_pda<'a>(name: &String, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"treasury", name.as_bytes()], program_id)
     }

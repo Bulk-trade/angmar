@@ -15,6 +15,7 @@ pub fn process_instruction<'a>(
     match instruction {
         VaultInstruction::InitializeDriftWithBulk {
             name,
+            lock_in_period,
             redeem_period,
             max_tokens,
             management_fee,
@@ -28,6 +29,7 @@ pub fn process_instruction<'a>(
             accounts,
             &VaultParams {
                 name,
+                lock_in_period,
                 redeem_period,
                 max_tokens,
                 management_fee,

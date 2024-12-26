@@ -14,7 +14,7 @@ use solana_program::{
 };
 
 use crate::{
-    common::{bytes32_to_string, deserialize_zero_copy, log_accounts},
+    common::{deserialize_zero_copy, log_accounts},
     error::wrap_drift_error,
     state::{Vault, VaultDepositor},
 };
@@ -87,8 +87,9 @@ pub fn request_withdraw<'info>(
     // User details
     let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
 
-    let vault_equity =
-        vault.calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map).map_err(wrap_drift_error)?;
+    let vault_equity = vault
+        .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
+        .map_err(wrap_drift_error)?;
 
     msg!("vault_equity: {:?}", vault_equity);
 
