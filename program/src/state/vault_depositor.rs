@@ -35,6 +35,8 @@ pub struct VaultDepositor {
     pub net_deposits: u64,
     /// lifetime total deposits
     pub total_deposits: u64,
+    /// Record of Deposits
+    pub deposits: Vec<DepositInfo>,
     /// lifetime total withdraws
     pub total_withdraws: u64,
     /// the token amount of gains the vault depositor has paid performance fees on
@@ -87,6 +89,87 @@ impl VaultDepositor {
         Ok(amount)
     }
 
+    pub fn deposit(
+        &mut self,
+        mut amount: u64,
+        vault_equity: u64,
+        vault: &mut Vault,
+        now: i64,
+    ) -> Result<(u64, u64), ProgramError> {
+        validate!(
+            vault.max_tokens == 0
+                || vault.max_tokens > vault_equity.safe_add(amount).map_err(wrap_drift_error)?,
+            ErrorCode::VaultIsAtCapacity,
+            "after deposit vault equity is {} > {}",
+            vault_equity + amount,
+            vault.max_tokens
+        )?;
+
+        validate!(
+            vault.min_deposit_amount == 0 || amount >= vault.min_deposit_amount,
+            ErrorCode::InvalidVaultDeposit,
+            "deposit amount {} is below vault min_deposit_amount {}",
+            amount,
+            vault.min_deposit_amount
+        )?;
+
+        let vault_shares_before = self.vault_shares;
+        let total_vault_shares_before = vault.total_shares;
+        let user_vault_shares_before = vault.user_shares;
+
+        let management_fee = vault.calculate_fees(amount);
+        amount -= management_fee;
+        msg!("Fees: {}", management_fee);
+        msg!("Deposit amount after fees: {}", amount);
+
+        let new_shares =
+            Self::calculate_amount_to_shares(amount, total_vault_shares_before, vault_equity)?;
+        msg!("Issuing user shares: {}", new_shares);
+
+        self.total_deposits = self.total_deposits.saturating_add(amount);
+        self.net_deposits = self.net_deposits.saturating_add(amount);
+        self.vault_shares = self.vault_shares.saturating_add(new_shares);
+
+        vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
+        vault.total_deposits = vault.total_deposits.saturating_add(amount);
+        vault.net_deposits = vault.net_deposits.saturating_add(amount);
+        vault.total_shares = vault
+            .total_shares
+            .safe_add(new_shares)
+            .map_err(wrap_drift_error)?;
+        vault.user_shares = vault
+            .user_shares
+            .safe_add(new_shares)
+            .map_err(wrap_drift_error)?;
+
+        msg!("Vault Deposit Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: vault.pubkey,
+            depositor_authority: self.authority,
+            action: VaultDepositorAction::Deposit,
+            amount,
+            spot_market_index: vault.spot_market_index,
+            vault_equity_before: vault_equity,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after: self.vault_shares,
+            total_vault_shares_after: vault.total_shares,
+            user_vault_shares_after: vault.user_shares,
+            profit_share: vault.profit_share,
+            profit_share_amount: 0,
+            management_fee,
+            management_fee_amount: vault.management_fee,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok((amount, management_fee))
+    }
+
     pub fn request_withdraw(
         &mut self,
         withdraw_amount: u64,
@@ -106,6 +189,11 @@ impl VaultDepositor {
         let vault_shares_before: u128 = self.vault_shares;
         let total_vault_shares_before = vault.total_shares;
         let user_vault_shares_before = vault.user_shares;
+
+        validate!(
+            vault_shares_before >= shares,
+            ErrorCode::InsufficientVaultShares
+        )?;
 
         self.last_withdraw_request.set(
             vault_shares_before,
@@ -193,7 +281,12 @@ impl VaultDepositor {
         Ok(())
     }
 
-    pub fn withdraw(&mut self, vault_equity: u64, vault: &mut Vault, now: i64) -> Result<(u64, u64), ProgramError> {
+    pub fn withdraw(
+        &mut self,
+        vault_equity: u64,
+        vault: &mut Vault,
+        now: i64,
+    ) -> Result<(u64, u64), ProgramError> {
         self.last_withdraw_request
             .check_redeem_period_finished(vault, now)?;
 
@@ -215,9 +308,10 @@ impl VaultDepositor {
             ErrorCode::InsufficientVaultShares
         )?;
 
-        let amount: u64 = if_shares_to_vault_amount(shares, vault.total_shares, vault_equity)
-            .map_err(wrap_drift_error)?;
-        let mut withdraw_amount = amount.min(self.last_withdraw_request.value);
+        let mut withdraw_amount: u64 =
+            if_shares_to_vault_amount(shares, vault.total_shares, vault_equity)
+                .map_err(wrap_drift_error)?;
+        // let mut withdraw_amount = amount.min(self.last_withdraw_request.value);
 
         // Calculate fees and profit share
         let management_fee = vault.calculate_fees(withdraw_amount);
@@ -233,8 +327,7 @@ impl VaultDepositor {
 
         withdraw_amount = withdraw_amount
             .checked_sub(total_deductions)
-            .ok_or(ErrorCode::InsufficientWithdraw)?
-            .min(self.last_withdraw_request.value);
+            .ok_or(ErrorCode::InsufficientWithdraw)?;
 
         msg!("Total deductions: {}", total_deductions);
         msg!("Final withdraw amount: {}", withdraw_amount);
@@ -245,7 +338,7 @@ impl VaultDepositor {
 
         msg!(
             "amount={}, last_withdraw_request_value={}",
-            amount,
+            withdraw_amount,
             self.last_withdraw_request.value
         );
         msg!(
@@ -371,5 +464,19 @@ impl VaultDepositor {
         } else {
             Ok(0)
         }
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct DepositInfo {
+    /// Timestamp of Deposit
+    pub ts: i64,
+    /// Shares allocated at Deposit
+    pub shares: u128,
+}
+
+impl DepositInfo {
+    pub fn new(ts: i64, shares: u128) -> Self {
+        Self { ts, shares }
     }
 }

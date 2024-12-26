@@ -118,9 +118,6 @@ pub fn withdraw<'info>(
 
     // User details
     let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
-    msg!("User Details:");
-    msg!("  Authority: {}", user.authority);
-    msg!("  Name: {}", bytes32_to_string(user.name));
 
     let vault_equity = vault
         .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)

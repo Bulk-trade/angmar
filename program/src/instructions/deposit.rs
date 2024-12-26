@@ -1,11 +1,7 @@
-use crate::common::{
-    bytes32_to_string, deserialize_zero_copy, log_accounts, log_data, log_params, transfer_fees,
-    transfer_to_vault,
-};
+use crate::common::{deserialize_zero_copy, log_accounts, transfer_fees, transfer_to_vault};
 use crate::drift::{DepositIxArgs, DepositIxData};
-use crate::error::{wrap_drift_error, ErrorCode};
-use crate::state::{Vault, VaultDepositor, VaultDepositorAction, VaultDepositorRecord};
-use crate::validate;
+use crate::error::wrap_drift_error;
+use crate::state::{Vault, VaultDepositor};
 use drift::instructions::optional_accounts::{load_maps, AccountMaps};
 use drift::state::spot_market_map::get_writable_spot_market_set;
 use drift::state::user::User;
@@ -25,7 +21,7 @@ pub fn deposit<'info>(
     program_id: &Pubkey,
     accounts: &'info [AccountInfo<'info>],
     name: String,
-    mut amount: u64,
+    amount: u64,
 ) -> ProgramResult {
     msg!("Starting deposit...");
     msg!("name: {}", name);
@@ -54,6 +50,7 @@ pub fn deposit<'info>(
     let mint = next_account_info(&mut iter)?;
 
     let token_program = next_account_info(&mut iter)?;
+    let system_program = next_account_info(&mut iter)?;
 
     log_accounts(&[
         (vault_account, "Vault"),
@@ -102,8 +99,8 @@ pub fn deposit<'info>(
         return Err(ProgramError::InvalidArgument);
     }
 
-    msg!("unpacking vault state account");
     let mut vault = Vault::get(vault_account);
+    let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
 
     let writable_spot_market_set = get_writable_spot_market_set(vault.spot_market_index);
 
@@ -125,91 +122,30 @@ pub fn deposit<'info>(
 
     // User details
     let user = deserialize_zero_copy::<User>(&*drift_user.try_borrow_data()?);
-    msg!("User Details:");
-    msg!("  Authority: {}", user.authority);
-    msg!("  Name: {}", bytes32_to_string(user.name));
 
     let vault_equity = vault
         .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
         .map_err(wrap_drift_error)?;
+    let timestamp = clock.unix_timestamp;
 
-    msg!("vault_equity: {:?}", vault_equity);
+    let (deposit_amount, fees) =
+        vault_depositor.deposit(amount, vault_equity, &mut vault, timestamp)?;
 
-    msg!("Getting Vault Depositor");
-    let mut vault_depositor = VaultDepositor::get(vault_depositor_account);
+    // let vault_depositor_data = vault_depositor_account.try_borrow_data()?;
+    // let new_size: usize = vault_depositor_data.len() + mem::size_of::<DepositInfo>();
 
-    msg!("Vault Depositor Pubkey: {:?}", vault_depositor.pubkey);
+    //reallocate memory to vault_depositor
+    // invoke(
+    //     &system_instruction::allocate(&vault_depositor.pubkey, new_size as u64),
+    //     &[vault_depositor_account.clone(), system_program.clone()],
+    // )?;
 
-    validate!(
-        vault.max_tokens == 0 || vault.max_tokens > vault_equity + amount,
-        ErrorCode::VaultIsAtCapacity,
-        "after deposit vault equity is {} > {}",
-        vault_equity + amount,
-        vault.max_tokens
-    )?;
-
-    validate!(
-        vault.min_deposit_amount == 0 || amount >= vault.min_deposit_amount,
-        ErrorCode::InvalidVaultDeposit,
-        "deposit amount {} is below vault min_deposit_amount {}",
-        amount,
-        vault.min_deposit_amount
-    )?;
-
-    let vault_shares_before = vault_depositor.vault_shares;
-    let total_vault_shares_before = vault.total_shares;
-    let user_vault_shares_before = vault.user_shares;
-
-    let fees = vault.calculate_fees(amount);
-    amount -= fees;
-    msg!("Fees: {}", fees);
-    msg!("Deposit amount after fees: {}", amount);
-
-    let new_shares = VaultDepositor::calculate_amount_to_shares(
-        amount,
-        total_vault_shares_before,
-        vault_equity,
-    )?;
-    msg!("Issuing user shares: {}", new_shares);
-
-    vault_depositor.total_deposits += amount;
-    vault_depositor.net_deposits += amount;
-    vault_depositor.vault_shares += new_shares;
+    // vault_depositor
+    //     .deposits
+    //     .push(DepositInfo::new(timestamp, new_shares));
 
     VaultDepositor::save(&vault_depositor, vault_depositor_account)?;
-
-    vault.manager_total_fee += fees;
-    vault.total_deposits += amount;
-    vault.net_deposits += amount;
-    vault.user_shares += new_shares as u128;
-    vault.total_shares += new_shares as u128;
-
     Vault::save(&vault, vault_account)?;
-
-    msg!("Vault Deposit Record");
-    let record = VaultDepositorRecord {
-        ts: clock.unix_timestamp,
-        vault: vault.pubkey,
-        depositor_authority: *authority.key,
-        action: VaultDepositorAction::Deposit,
-        amount,
-        spot_market_index: vault.spot_market_index,
-        vault_equity_before: vault_equity,
-        vault_shares_before,
-        user_vault_shares_before,
-        total_vault_shares_before,
-        vault_shares_after: vault_depositor.vault_shares,
-        total_vault_shares_after: vault.total_shares,
-        user_vault_shares_after: vault.user_shares,
-        profit_share: vault.profit_share,
-        profit_share_amount: 0,
-        management_fee: fees,
-        management_fee_amount: vault.management_fee,
-    };
-
-    log_data(&record)?;
-
-    log_params(&record);
 
     transfer_fees(
         fees,
@@ -221,7 +157,7 @@ pub fn deposit<'info>(
     )?;
 
     transfer_to_vault(
-        amount,
+        deposit_amount,
         token_program,
         user_token_account,
         vault_token_account,
@@ -231,7 +167,7 @@ pub fn deposit<'info>(
 
     drift_deposit(
         &vault,
-        amount,
+        deposit_amount,
         name,
         vault_bump_seed,
         drift_state,
