@@ -2,7 +2,7 @@ use crate::{
     common::{log_accounts, log_params, string_to_bytes32},
     constants::{PERCENTAGE_PRECISION, PERCENTAGE_PRECISION_U64},
     drift::{self, InitializeUserIxArgs, InitializeUserIxData, InitializeUserStatsIxData},
-    error::ErrorCode,
+    error::VaultErrorCode,
     state::Treasury,
 };
 use serde::Serialize;
@@ -191,7 +191,7 @@ fn initialize_vault<'a>(
 
     if params.management_fee >= PERCENTAGE_PRECISION_U64 {
         msg!("management fee must be < 100%");
-        return Err(ErrorCode::InvalidVaultInitialization.into());
+        return Err(VaultErrorCode::InvalidVaultInitialization.into());
     }
 
     vault.management_fee = params.management_fee;
@@ -201,7 +201,7 @@ fn initialize_vault<'a>(
 
     if params.profit_share >= PERCENTAGE_PRECISION as u32 {
         msg!("profit share must be < 100%");
-        return Err(ErrorCode::InvalidVaultInitialization.into());
+        return Err(VaultErrorCode::InvalidVaultInitialization.into());
     }
     vault.profit_share = params.profit_share;
 

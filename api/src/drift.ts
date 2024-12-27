@@ -180,6 +180,89 @@ export async function getDriftDepositKeys(
     ]
 }
 
+export async function getDriftManagerDepositKeys(
+    connection: Connection,
+    signer: Keypair,
+    programId: PublicKey,
+    managerTokenAccount: PublicKey,
+    vaultName: string,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey
+): Promise<AccountMeta[]> {
+
+    const vault = getVaultPDA(vaultName, programId);
+    const [user, userStats] = getDriftUser(vault);
+    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+
+    const vaultTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        mint,
+        vault,
+        true
+    )).address;
+
+    return [
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userStats,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: state,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarketVault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: oracle,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: managerTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: mint,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: TOKEN_PROGRAM_ID,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
+}
+
 export async function getDriftWithdrawKeys(
     connection: Connection,
     signer: Keypair,

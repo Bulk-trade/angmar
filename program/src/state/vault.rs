@@ -13,10 +13,14 @@ use solana_program::borsh0_10::try_from_slice_unchecked;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::msg;
 use solana_program::program_pack::Sealed;
-use solana_program::pubkey::Pubkey;
+use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 use std::result::Result;
 
+use crate::common::{calculate_amount_to_shares, log_data, log_params};
 use crate::constants::PERCENTAGE_PRECISION_U64;
+use crate::custom_validate;
+use crate::error::{wrap_drift_error, VaultErrorCode};
+use crate::state::{VaultDepositorAction, VaultDepositorRecord};
 
 #[derive(BorshSerialize, BorshDeserialize)]
 pub struct Vault {
@@ -113,6 +117,13 @@ impl Vault {
         Ok(())
     }
 
+    pub fn get_manager_shares(&self) -> Result<u128, ProgramError> {
+        Ok(self
+            .total_shares
+            .safe_sub(self.user_shares)
+            .map_err(wrap_drift_error)?)
+    }
+
     pub fn calculate_total_equity(
         &self,
         user: &User,
@@ -153,5 +164,67 @@ impl Vault {
             .checked_mul(self.management_fee)
             .expect("Fee calculation overflow");
         (numerator + PERCENTAGE_PRECISION_U64 - 1) / PERCENTAGE_PRECISION_U64
+    }
+
+    pub fn manager_deposit(
+        &mut self,
+        amount: u64,
+        vault_equity: u64,
+        now: i64,
+    ) -> Result<(), ProgramError> {
+        custom_validate!(
+            self.max_tokens == 0
+                || self.max_tokens > vault_equity.safe_add(amount).map_err(wrap_drift_error)?,
+            VaultErrorCode::VaultIsAtCapacity,
+            "after deposit vault equity is {} > {}",
+            vault_equity + amount,
+            self.max_tokens
+        )?;
+
+        let vault_shares_before = self.get_manager_shares()?;
+        let total_vault_shares_before = self.total_shares;
+        let user_vault_shares_before = self.user_shares;
+
+        let new_shares =
+            calculate_amount_to_shares(amount, total_vault_shares_before, vault_equity)?;
+        msg!("Issuing user shares: {}", new_shares);
+
+        self.total_deposits = self.total_deposits.saturating_add(amount);
+        self.manager_total_deposits = self.manager_total_deposits.saturating_add(amount);
+        self.net_deposits = self.net_deposits.saturating_add(amount);
+        self.manager_net_deposits = self.manager_net_deposits.saturating_add(amount);
+
+        self.total_shares = self
+            .total_shares
+            .safe_add(new_shares)
+            .map_err(wrap_drift_error)?;
+        let vault_shares_after = self.get_manager_shares()?;
+
+        msg!("Vault Deposit Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: self.pubkey,
+            depositor_authority: self.manager,
+            action: VaultDepositorAction::Deposit,
+            amount,
+            spot_market_index: self.spot_market_index,
+            vault_equity_before: vault_equity,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after,
+            total_vault_shares_after: self.total_shares,
+            user_vault_shares_after: self.user_shares,
+            profit_share: self.profit_share,
+            profit_share_amount: 0,
+            management_fee: self.management_fee,
+            management_fee_amount: 0,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok(())
     }
 }

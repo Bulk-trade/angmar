@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! validate {
+macro_rules! custom_validate {
     ($assert:expr, $err:expr) => {{
         if ($assert) {
              Ok::<(), ProgramError>(())
@@ -9,7 +9,7 @@ macro_rules! validate {
             Err(error.into())
         }
     }};
-    
+
     ($assert:expr, $err:expr, $($arg:tt)+) => {{
         if ($assert) {
              Ok::<(), ProgramError>(())

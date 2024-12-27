@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { cancelWithdrawRequest, deposit, deposit_old, initializeDrift, initializeDriftWithBulk, initializeVault, initializeVaultDepositor, requestWithdraw, updateDelegate, withdraw } from './vault';
+import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerDeposit, requestWithdraw, updateDelegate, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -36,45 +36,6 @@ const ORACLE_USDC = new PublicKey('En8hkHLkRe9d9DraYmBTrus518BvmVH448YcvmrFM6Ce'
 const ORACLE_WSOL = new PublicKey('BAtFj4kQttZRVep3UZS2aZRDixkGYgWsbqTBVDbnSsPF');
 
 
-
-app.post('/initVault', async (req, res) => {
-    try {
-        const { vault_id } = req.body;
-
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
-
-        console.log(`Signer: ${signer.publicKey}`)
-
-        await initializeVault(connection, signer, BULK_PROGRAM_ID, vault_id);
-        res.status(200).send('Initialized Vault successfully');
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error initializing Vault');
-    }
-});
-
-app.post('/initDrift', async (req, res) => {
-    try {
-        const { vault_id } = req.body;
-
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY",
-        });
-
-        console.log(`Signer: ${signer.publicKey}`)
-
-        await initializeDrift(signer, BULK_PROGRAM_ID, connection, vault_id);
-        res.status(200).send('Initialized Vault successfully');
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error initializing Vault');
-    }
-});
-
 app.post('/init-drift-bulk', async (req, res) => {
     try {
         const { name } = req.body;
@@ -96,43 +57,21 @@ app.post('/init-drift-bulk', async (req, res) => {
 
 app.post('/deposit-usdc', async (req, res) => {
     try {
-        const { vault_id, user_pubkey, amount } = req.body;
-        const signer = await initializeKeypair(connection, {
+        const { vault_name, amount } = req.body;
+        const user = await initializeKeypair(connection, {
             airdropAmount: 2 * LAMPORTS_PER_SOL,
             envVariableName: "PRIVATE_KEY_USER",
         });
 
         console.log("before deposit");
-        const usdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
+        const usdcBalance = await getTokenBalance(connection, user.publicKey.toString(), USDC_MINT_LOCAL.toString());
         console.log(usdcBalance);
 
-        await deposit_old(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 0, ORACLE_USDC, SPOT_MARKET_VAULT_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+        await deposit(connection, user, BULK_PROGRAM_ID, vault_name, amount, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
         console.log("after deposit")
-        const newUsdcBalance = await getTokenBalance(connection, signer.publicKey.toString(), USDC_MINT_LOCAL.toString());
+        const newUsdcBalance = await getTokenBalance(connection, user.publicKey.toString(), USDC_MINT_LOCAL.toString());
         console.log(newUsdcBalance);
-        res.status(200).send('Deposited successfully');
-    } catch (error) {
-        console.error('Error during deposit:', error);
-        res.status(500).send('Error during deposit');
-    }
-});
-
-app.post('/deposit-wsol', async (req, res) => {
-    try {
-        const { vault_id, user_pubkey, amount } = req.body;
-        const signer = await initializeKeypair(connection, {
-            airdropAmount: 2 * LAMPORTS_PER_SOL,
-            envVariableName: "PRIVATE_KEY_USER",
-        });
-
-        console.log("before deposit")
-        console.log(await connection.getBalance(signer.publicKey))
-
-        await deposit_old(connection, signer, BULK_PROGRAM_ID, vault_id, user_pubkey, amount, 1, SPOT_MARKET_WSOL, SPOT_MARKET_VAULT_WSOL, ORACLE_WSOL, WSOL);
-
-        console.log("after deposit")
-        console.log(await connection.getBalance(signer.publicKey))
         res.status(200).send('Deposited successfully');
     } catch (error) {
         console.error('Error during deposit:', error);
@@ -187,7 +126,7 @@ app.listen(PORT, async () => {
     console.log(`Restart cmd: cd api && PROGRAM_ID=${BULK_PROGRAM_ID.toString()} npm run local`);
     console.log(`BULK Vault Program Id: ${BULK_PROGRAM_ID.toString()}`);
 
-    const admin = await initializeKeypair(connection, {
+    const manager = await initializeKeypair(connection, {
         airdropAmount: 2 * LAMPORTS_PER_SOL,
         envVariableName: "PRIVATE_KEY",
     });
@@ -200,14 +139,14 @@ app.listen(PORT, async () => {
 
     const vault_name = 'bulk1';
 
-    console.log('Admin SIGNER', admin.publicKey.toString());
+    console.log('Admin SIGNER', manager.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
-    // await initializeDriftWithBulk(connection, admin, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 30, 1 * 30, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
+    // await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 30, 1 * 30, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
     // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-    // await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+     await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
     // await updateDelegate(connection, admin, BULK_PROGRAM_ID, vault_name, user.publicKey.toString(), 0)
 
@@ -216,5 +155,7 @@ app.listen(PORT, async () => {
     // await cancelWithdrawRequest(connection, user, BULK_PROGRAM_ID, vault_name, ORACLE_USDC, SPOT_MARKET_USDC);
 
     // await withdraw(connection, user, BULK_PROGRAM_ID, vault_name, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC,  USDC_MINT_LOCAL);
+
+    // await managerDeposit(connection, manager, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 });
 

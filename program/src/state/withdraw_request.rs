@@ -1,5 +1,5 @@
 use crate::error::wrap_drift_error;
-use crate::{error::ErrorCode, validate};
+use crate::{error::VaultErrorCode, custom_validate};
 use borsh::{BorshDeserialize, BorshSerialize};
 use drift::math::safe_math::SafeMath;
 use solana_program::entrypoint::ProgramResult;
@@ -27,15 +27,15 @@ impl WithdrawRequest {
         vault_equity: u64,
         now: i64,
     ) -> ProgramResult {
-        validate!(
+        custom_validate!(
             self.value == 0,
-            ErrorCode::VaultWithdrawRequestInProgress,
+            VaultErrorCode::VaultWithdrawRequestInProgress,
             "withdraw request is already in progress"
         )?;
 
-        validate!(
+        custom_validate!(
             withdraw_shares <= current_shares,
-            ErrorCode::InvalidVaultWithdrawSize,
+            VaultErrorCode::InvalidVaultWithdrawSize,
             "shares requested exceeds vault_shares {} > {}",
             withdraw_shares,
             current_shares
@@ -43,9 +43,9 @@ impl WithdrawRequest {
 
         self.shares = withdraw_shares;
 
-        validate!(
+        custom_validate!(
             withdraw_amount == 0 || withdraw_amount <= vault_equity,
-            ErrorCode::InvalidVaultWithdrawSize,
+            VaultErrorCode::InvalidVaultWithdrawSize,
             "Requested withdraw value {} is not equal or below vault_equity {}",
             withdraw_amount,
             vault_equity
@@ -70,9 +70,9 @@ impl WithdrawRequest {
     pub fn check_redeem_period_finished(&self, vault: &Vault, now: i64) -> ProgramResult {
         let time_since_withdraw_request = now.safe_sub(self.ts).map_err(wrap_drift_error)?;
 
-        validate!(
+        custom_validate!(
             time_since_withdraw_request >= vault.redeem_period as i64,
-            ErrorCode::CannotWithdrawBeforeRedeemPeriodEnd
+            VaultErrorCode::CannotWithdrawBeforeRedeemPeriodEnd
         )?;
 
         Ok(())

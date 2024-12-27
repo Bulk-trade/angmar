@@ -2,7 +2,7 @@ use solana_program::program_error::ProgramError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ErrorCode {
+pub enum VaultErrorCode {
     #[error("Account not initialized yet")]
     UninitializedAccount,
 
@@ -56,10 +56,13 @@ pub enum ErrorCode {
 
     #[error("InsufficientShares")]
     InsufficientShares,
+
+    #[error("InvalidOracle")]
+    InvalidOracle,
 }
 
-impl From<ErrorCode> for ProgramError {
-    fn from(e: ErrorCode) -> Self {
+impl From<VaultErrorCode> for ProgramError {
+    fn from(e: VaultErrorCode) -> Self {
         ProgramError::Custom(e as u32)
     }
 }

@@ -2,11 +2,11 @@ use std::mem;
 
 use super::{Vault, WithdrawRequest};
 use crate::{
-    common::{log_data, log_params},
+    common::{calculate_amount_to_shares, log_data, log_params},
     constants::PERCENTAGE_PRECISION,
-    error::{wrap_drift_error, ErrorCode},
+    custom_validate,
+    error::{wrap_drift_error, VaultErrorCode},
     state::{VaultDepositorAction, VaultDepositorRecord},
-    validate,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use drift::math::{
@@ -93,17 +93,6 @@ impl VaultDepositor {
         Ok(())
     }
 
-    pub fn calculate_amount_to_shares(
-        amount: u64,
-        total_vault_shares: u128,
-        total_value_locked: u64,
-    ) -> Result<u128, ProgramError> {
-        let shares = vault_amount_to_if_shares(amount, total_vault_shares, total_value_locked)
-            .map_err(wrap_drift_error)?;
-
-        Ok(shares)
-    }
-
     pub fn calculate_shares_to_amount(
         n_shares: u128,
         total_vault_shares: u128,
@@ -122,18 +111,18 @@ impl VaultDepositor {
         vault: &mut Vault,
         now: i64,
     ) -> Result<(u64, u64), ProgramError> {
-        validate!(
+        custom_validate!(
             vault.max_tokens == 0
                 || vault.max_tokens > vault_equity.safe_add(amount).map_err(wrap_drift_error)?,
-            ErrorCode::VaultIsAtCapacity,
+            VaultErrorCode::VaultIsAtCapacity,
             "after deposit vault equity is {} > {}",
             vault_equity + amount,
             vault.max_tokens
         )?;
 
-        validate!(
+        custom_validate!(
             vault.min_deposit_amount == 0 || amount >= vault.min_deposit_amount,
-            ErrorCode::InvalidVaultDeposit,
+            VaultErrorCode::InvalidVaultDeposit,
             "deposit amount {} is below vault min_deposit_amount {}",
             amount,
             vault.min_deposit_amount
@@ -149,7 +138,7 @@ impl VaultDepositor {
         msg!("Deposit amount after fees: {}", amount);
 
         let new_shares =
-            Self::calculate_amount_to_shares(amount, total_vault_shares_before, vault_equity)?;
+            calculate_amount_to_shares(amount, total_vault_shares_before, vault_equity)?;
         msg!("Issuing user shares: {}", new_shares);
 
         self.total_deposits = self.total_deposits.saturating_add(amount);
@@ -186,8 +175,8 @@ impl VaultDepositor {
             user_vault_shares_after: vault.user_shares,
             profit_share: vault.profit_share,
             profit_share_amount: 0,
-            management_fee,
-            management_fee_amount: vault.management_fee,
+            management_fee: vault.management_fee,
+            management_fee_amount: management_fee,
         };
 
         log_data(&record)?;
@@ -207,17 +196,17 @@ impl VaultDepositor {
         let shares = vault_amount_to_if_shares(withdraw_amount, vault.total_shares, vault_equity)
             .map_err(wrap_drift_error)?;
 
-        validate!(
+        custom_validate!(
             shares > 0,
-            ErrorCode::InvalidVaultWithdrawSize,
+            VaultErrorCode::InvalidVaultWithdrawSize,
             "Requested shares = 0"
         )?;
 
         let withdrawable_shares = self.calculate_withdrawable_shares(now, vault.lock_in_period)?;
 
-        validate!(
+        custom_validate!(
             shares <= withdrawable_shares,
-            ErrorCode::InvalidVaultWithdrawSize,
+            VaultErrorCode::InvalidVaultWithdrawSize,
             "Requested shares greater then withdrawable_shares"
         )?;
 
@@ -225,9 +214,9 @@ impl VaultDepositor {
         let total_vault_shares_before = vault.total_shares;
         let user_vault_shares_before = vault.user_shares;
 
-        validate!(
+        custom_validate!(
             vault_shares_before >= shares,
-            ErrorCode::InsufficientVaultShares
+            VaultErrorCode::InsufficientVaultShares
         )?;
 
         self.last_withdraw_request.set(
@@ -331,16 +320,16 @@ impl VaultDepositor {
 
         let shares = self.last_withdraw_request.shares;
 
-        validate!(
+        custom_validate!(
             shares > 0,
-            ErrorCode::InvalidVaultWithdraw,
+            VaultErrorCode::InvalidVaultWithdraw,
             "Must submit withdraw request and wait the redeem_period ({} seconds)",
             vault.redeem_period
         )?;
 
-        validate!(
+        custom_validate!(
             vault_shares_before >= shares,
-            ErrorCode::InsufficientVaultShares
+            VaultErrorCode::InsufficientVaultShares
         )?;
 
         let mut withdraw_amount: u64 =
@@ -358,11 +347,11 @@ impl VaultDepositor {
         // Calculate total deductions and final amount
         let total_deductions = management_fee
             .checked_add(profit_share)
-            .ok_or(ErrorCode::MathError)?;
+            .ok_or(VaultErrorCode::MathError)?;
 
         withdraw_amount = withdraw_amount
             .checked_sub(total_deductions)
-            .ok_or(ErrorCode::InsufficientWithdraw)?;
+            .ok_or(VaultErrorCode::InsufficientWithdraw)?;
 
         msg!("Total deductions: {}", total_deductions);
         msg!("Final withdraw amount: {}", withdraw_amount);
@@ -403,12 +392,12 @@ impl VaultDepositor {
         vault.manager_total_fee = vault
             .manager_total_fee
             .checked_add(management_fee)
-            .ok_or(ErrorCode::MathError)?;
+            .ok_or(VaultErrorCode::MathError)?;
 
         vault.manager_total_profit_share = vault
             .manager_total_profit_share
             .checked_add(profit_share)
-            .ok_or(ErrorCode::MathError)?;
+            .ok_or(VaultErrorCode::MathError)?;
 
         vault.total_withdraws = vault.total_withdraws.saturating_add(withdraw_amount);
         vault.net_deposits = vault
@@ -530,7 +519,7 @@ impl VaultDepositor {
                 let unlock_time = deposit
                     .ts
                     .checked_add(lock_in_period as i64)
-                    .ok_or(ErrorCode::MathError)
+                    .ok_or(VaultErrorCode::MathError)
                     .ok()?;
 
                 // Include shares if unlock time has passed
@@ -590,14 +579,14 @@ impl VaultDepositor {
                 // Remove entire deposit
                 remaining_shares = remaining_shares
                     .checked_sub(deposit.shares)
-                    .ok_or(ErrorCode::MathError)?;
+                    .ok_or(VaultErrorCode::MathError)?;
                 indices_to_remove.push(i);
             } else {
                 // Partial removal
                 deposit.shares = deposit
                     .shares
                     .checked_sub(remaining_shares)
-                    .ok_or(ErrorCode::MathError)?;
+                    .ok_or(VaultErrorCode::MathError)?;
                 remaining_shares = 0;
             }
         }
@@ -610,7 +599,7 @@ impl VaultDepositor {
         // Validate all shares were removed
         if remaining_shares > 0 {
             msg!("Not enough shares in deposits to remove");
-            return Err(ErrorCode::InsufficientShares.into());
+            return Err(VaultErrorCode::InsufficientShares.into());
         }
 
         // Calculate and log remaining shares after removal

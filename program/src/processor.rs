@@ -1,4 +1,5 @@
 use crate::instruction::VaultInstruction;
+use crate::instructions::manager_deposit::manager_deposit;
 use crate::instructions::{
     cancel_withdraw_request, deposit, initialize_drift_vault_with_bulk, initialize_vault_depositor,
     request_withdraw, update_vault_delegate, withdraw, VaultParams,
@@ -53,5 +54,8 @@ pub fn process_instruction<'a>(
             delegate,
             sub_account,
         } => update_vault_delegate(program_id, accounts, vault_id, delegate, sub_account),
+        VaultInstruction::ManagerDeposit { name, amount } => {
+            manager_deposit(program_id, accounts, name, amount)
+        }
     }
 }

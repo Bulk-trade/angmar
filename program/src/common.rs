@@ -2,6 +2,7 @@ use anchor_lang::{Owner, ZeroCopy};
 use arrayref::array_ref;
 use borsh::BorshSerialize;
 use bytemuck::from_bytes;
+use drift::math::insurance::vault_amount_to_if_shares;
 use serde::Serialize;
 use serde_json::to_string;
 use solana_program::{
@@ -14,7 +15,7 @@ use solana_program::{
 };
 use spl_token::instruction;
 
-use crate::state::Vault;
+use crate::{error::wrap_drift_error, state::Vault};
 
 /// Deserializes a zero-copy account from the given account data.
 ///
@@ -118,6 +119,17 @@ pub fn log_accounts(accounts: &[(&AccountInfo, &str)]) {
 pub fn log_data<T: Serialize + BorshSerialize>(record: &T) -> Result<(), ProgramError> {
     sol_log_data(&[&record.try_to_vec()?]);
     Ok(())
+}
+
+pub fn calculate_amount_to_shares(
+    amount: u64,
+    total_vault_shares: u128,
+    total_value_locked: u64,
+) -> Result<u128, ProgramError> {
+    let shares = vault_amount_to_if_shares(amount, total_vault_shares, total_value_locked)
+        .map_err(wrap_drift_error)?;
+
+    Ok(shares)
 }
 
 pub fn transfer_fees<'a>(

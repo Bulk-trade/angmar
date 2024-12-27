@@ -1,6 +1,6 @@
 import { AccountMeta, ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { BotStatus, getTreasuryPDA, getVaultDepositorPDA, getVaultPDA as getVaultPDA, FundStatus } from "./util";
-import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
+import { DRIFT_PROGRAM, getDriftDepositKeys, getDriftManagerDepositKeys, getDriftUser, getDriftWithdrawKeys, getInitializeDriftKeys } from "./drift";
 import { createInitializeAccountInstruction, getOrCreateAssociatedTokenAccount, mintTo, TOKEN_PROGRAM_ID, TokenInstruction } from "@solana/spl-token"
 import { versionedTransactionSenderAndConfirmationWaiter } from "./utils/txns-sender";
 import { VersionedTransaction } from "@solana/web3.js";
@@ -47,199 +47,6 @@ export async function readPdaInfo(
     const data = initVaultInstuctionLayout.decode(accountInfo.data);
     // Convert the user_pubkey from bytes to a PublicKey string
     console.log(JSON.stringify(data, null, 2));
-}
-
-export async function initializeVault(
-    connection: Connection,
-    signer: Keypair,
-    programId: PublicKey,
-    vault_id: string,
-) {
-    // Log the input parameters
-    console.log('Received init parameters:', { vault_id });
-
-    let buffer = Buffer.alloc(1000);
-    const id = vault_id.slice(0, 32); // Truncate to 32 bytes
-    vaultInstructionLayout.encode(
-        {
-            variant: 0,
-            vault_id: id
-        },
-        buffer
-    );
-
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
-
-
-    const [vault, bump] = PublicKey.findProgramAddressSync(
-        [Buffer.from(vault_id)],
-        programId
-    );
-
-    console.log("Vault PDA is:", vault.toBase58());
-
-    const [treasury] = PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_id)],
-        programId
-    );
-
-    console.log("Treasury PDA is:", treasury.toBase58());
-
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: signer.publicKey,
-            isSigner: true,
-            isWritable: false,
-        },
-        {
-            pubkey: vault,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: treasury,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-    ];
-
-    console.log(`Keys Length: ${keys.length}`);
-
-    const Ix = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys,
-    });
-
-    // Get the latest blockhash for the transaction
-    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
-
-    const transaction = new VersionedTransaction(
-        new TransactionMessage({
-            payerKey: signer.publicKey,
-            recentBlockhash: blockhashResult.blockhash,
-            instructions: [Ix],
-        }).compileToV0Message()
-    );
-
-    transaction.sign([signer]);
-
-    // Get the transaction signature
-    const signature = getSignature(transaction);
-
-    // Serialize the transaction and get the recent blockhash
-    const serializedTransaction = transaction.serialize();
-
-    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
-        connection,
-        serializedTransaction,
-        blockhashWithExpiryBlockHeight: blockhashResult,
-    });
-
-    // Handle the transaction response
-    handleTransactionResponse(transactionResponse, signature);
-}
-
-export async function initializeDrift(
-    signer: Keypair,
-    programId: PublicKey,
-    connection: Connection,
-    vault_id: string,
-) {
-
-    // Log the input parameters
-    console.log('Received init drift parameters:', { vault_id });
-
-    let buffer = Buffer.alloc(1000);
-    const id = vault_id.slice(0, 32); // Truncate to 32 bytes
-    vaultInstructionLayout.encode(
-        {
-            variant: 3,
-            vault_id: id
-        },
-        buffer
-    );
-
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
-
-
-    const [vault, _] = PublicKey.findProgramAddressSync(
-        [Buffer.from(vault_id)],
-        programId
-    );
-
-    console.log("Vault PDA is:", vault.toBase58());
-
-    const [treasury] = PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_id)],
-        programId
-    );
-
-    console.log("Treasury PDA is:", treasury.toBase58());
-
-    const driftKeys = await getInitializeDriftKeys(signer.publicKey, programId, vault);
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: signer.publicKey,
-            isSigner: true,
-            isWritable: false,
-        },
-        {
-            pubkey: vault,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: treasury,
-            isSigner: false,
-            isWritable: true,
-        },
-    ];
-
-    keys.push(...driftKeys);
-
-    console.log(`Keys Length: ${keys.length}`);
-
-    const driftIx = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys,
-    });
-
-    // Get the latest blockhash for the transaction
-    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
-
-    const transaction = new VersionedTransaction(
-        new TransactionMessage({
-            payerKey: signer.publicKey,
-            recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, computePriceInstruction, driftIx],
-        }).compileToV0Message()
-    );
-
-    transaction.sign([signer]);
-
-    // Get the transaction signature
-    const signature = getSignature(transaction);
-
-    // Serialize the transaction and get the recent blockhash
-    const serializedTransaction = transaction.serialize();
-
-    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
-        connection,
-        serializedTransaction,
-        blockhashWithExpiryBlockHeight: blockhashResult,
-    });
-
-    // Handle the transaction response
-    handleTransactionResponse(transactionResponse, signature);
 }
 
 export async function initializeDriftWithBulk(
@@ -841,149 +648,6 @@ export async function cancelWithdrawRequest(
     //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
 }
 
-export async function deposit_old(
-    connection: Connection,
-    signer: Keypair,
-    programId: PublicKey,
-    vault_id: string,
-    user_pubkey: string,
-    amount: number,
-    marketIndex: number,
-    spotMarket: PublicKey,
-    spotMarketVault: PublicKey,
-    oracle: PublicKey,
-    mint: PublicKey,
-) {
-    // Log the input parameters
-    console.log('Received deposit parameters:', { vault_id, user_pubkey, amount, marketIndex, spotMarket: spotMarket.toString(), spotMarketVault: spotMarketVault.toString(), oracle: oracle.toString(), mint: mint.toString() });
-
-    // Validate input parameters
-    if (!vault_id || !user_pubkey) {
-        throw new Error('vault_id and user_pubkey must be defined');
-    }
-
-    let buffer = Buffer.alloc(1000);
-    const vault = vault_id.slice(0, 32); // Truncate to 32 bytes
-    const pubKey = user_pubkey.slice(0, 32); // Truncate to 32 bytes
-
-    // Assuming `amount` is a number
-    const amountBN = new BN(amount);
-
-    vaultInstructionLayout.encode(
-        {
-            variant: 1,
-            vault_id: vault,
-            user_pubkey: pubKey,
-            amount: amountBN,
-            fund_status: FundStatus.Deposited,
-            bot_status: BotStatus.Init,
-            market_index: marketIndex,
-        },
-        buffer
-    );
-
-    buffer = buffer.subarray(0, vaultInstructionLayout.getSpan(buffer));
-
-    const [user_info_pda] = PublicKey.findProgramAddressSync(
-        [signer.publicKey.toBuffer(), Buffer.from(pubKey)],
-        programId
-    );
-
-    console.log("User PDA is:", user_info_pda.toBase58());
-
-    const vault_pda = getVaultPDA(vault_id, programId);
-
-    console.log("Vault PDA is:", vault_pda.toBase58());
-
-    const [treasury] = await PublicKey.findProgramAddressSync(
-        [Buffer.from("treasury"), Buffer.from(vault_id)],
-        programId
-    );
-
-    console.log("Treasury PDA is:", treasury.toBase58());
-
-    const userTokenAccount = (await connection.getTokenAccountsByOwner(signer.publicKey, {
-        mint: mint
-    })).value[0].pubkey;
-
-    console.log("User Token account:", userTokenAccount.toString());
-
-    const treasuryTokenAccount = (await getOrCreateAssociatedTokenAccount(
-        connection,
-        signer,
-        mint,
-        treasury,
-        true
-    )).address;
-
-    console.log("Treasury Token account:", treasuryTokenAccount.toString());
-
-    const driftKeys = await getDriftDepositKeys(connection, signer, programId, userTokenAccount, treasuryTokenAccount, vault_id, spotMarket, spotMarketVault, oracle, mint);
-
-    const keys: AccountMeta[] = [
-        {
-            pubkey: signer.publicKey,
-            isSigner: true,
-            isWritable: true,
-        },
-        {
-            pubkey: user_info_pda,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: vault_pda,
-            isSigner: false,
-            isWritable: true,
-        },
-        {
-            pubkey: treasury,
-            isSigner: false,
-            isWritable: true,
-        },
-    ];
-
-    keys.push(...driftKeys);
-
-    console.log(`Keys Length: ${keys.length}`);
-
-    const instruction = new TransactionInstruction({
-        programId: programId,
-        data: buffer,
-        keys
-    });
-
-    // Get the latest blockhash for the transaction
-    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
-
-    const transaction = new VersionedTransaction(
-        new TransactionMessage({
-            payerKey: signer.publicKey,
-            recentBlockhash: blockhashResult.blockhash,
-            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
-        }).compileToV0Message()
-    );
-
-    transaction.sign([signer]);
-
-    // Get the transaction signature
-    const signature = getSignature(transaction);
-
-    // Serialize the transaction and get the recent blockhash
-    const serializedTransaction = transaction.serialize();
-
-    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
-        connection,
-        serializedTransaction,
-        blockhashWithExpiryBlockHeight: blockhashResult,
-    });
-
-    // Handle the transaction response
-    handleTransactionResponse(transactionResponse, signature);
-
-    //const tx = await sendAndConfirmTransaction(connection, transaction, [signer], { skipPreflight: true });
-}
-
 export async function withdraw(
     connection: Connection,
     authority: Keypair,
@@ -1194,4 +858,101 @@ export async function updateDelegate(
 
     // Handle the transaction response
     handleTransactionResponse(transactionResponse, signature);
+}
+
+export async function managerDeposit(
+    connection: Connection,
+    manager: Keypair,
+    programId: PublicKey,
+    vault_name: string,
+    amount: number,
+    spotMarketVault: PublicKey,
+    spotMarket: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey,
+) {
+    // Log the input parameters
+    console.log('Received deposit parameters:', { vault_name, amount, spotMarket: spotMarket.toString(), spotMarketVault: spotMarketVault.toString(), oracle: oracle.toString(), mint: mint.toString() });
+
+
+    let buffer = Buffer.alloc(1000);
+
+    // Assuming `amount` is a number
+    const amountBN = new BN(amount);
+
+    depositInstuctionLayout.encode(
+        {
+            variant: 7,
+            name: vault_name.slice(0, 32),
+            amount: amountBN,
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, depositInstuctionLayout.getSpan(buffer));
+
+    const vault = getVaultPDA(vault_name, programId)
+
+    console.log("Vault PDA is:", vault.toBase58());
+
+
+    const managerTokenAccount = (await connection.getTokenAccountsByOwner(manager.publicKey, {
+        mint: mint
+    })).value[0].pubkey;
+
+    console.log("Manager Token account:", managerTokenAccount.toString());
+
+    const driftKeys = await getDriftManagerDepositKeys(connection, manager, programId, managerTokenAccount, vault_name, spotMarket, spotMarketVault, oracle, mint);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: manager.publicKey,
+            isSigner: true,
+            isWritable: true,
+        },
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    keys.push(...driftKeys);
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const instruction = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: manager.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, computePriceInstruction, instruction],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([manager]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+
 }

@@ -1,5 +1,5 @@
 use crate::{
-    error::ErrorCode,
+    error::VaultErrorCode,
     state::{Vault, VaultDepositor},
 };
 use solana_program::{
@@ -50,7 +50,7 @@ pub fn initialize_vault_depositor<'a>(
     if vault.permissioned {
         if vault.manager != *authority.key {
             msg!("Vault depositor can only be created by vault manager");
-            return Err(ErrorCode::PermissionedVault.into());
+            return Err(VaultErrorCode::PermissionedVault.into());
         }
     }
 

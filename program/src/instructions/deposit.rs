@@ -140,6 +140,7 @@ pub fn deposit<'info>(
     let vault_equity = vault
         .calculate_total_equity(&user, &perp_market_map, &spot_market_map, &mut oracle_map)
         .map_err(wrap_drift_error)?;
+
     let timestamp = clock.unix_timestamp;
 
     let (deposit_amount, fees) =
@@ -186,7 +187,7 @@ pub fn deposit<'info>(
     Ok(())
 }
 
-fn drift_deposit<'a>(
+pub fn drift_deposit<'a>(
     vault: &Vault,
     amount: u64,
     name: String,
