@@ -211,7 +211,7 @@ app.listen(PORT, async () => {
 
     // await updateDelegate(connection, admin, BULK_PROGRAM_ID, vault_name, user.publicKey.toString(), 0)
 
-    await requestWithdraw(connection, user, BULK_PROGRAM_ID, vault_name, 900000, ORACLE_USDC, SPOT_MARKET_USDC);
+    // await requestWithdraw(connection, user, BULK_PROGRAM_ID, vault_name, 900000, ORACLE_USDC, SPOT_MARKET_USDC);
 
     // await cancelWithdrawRequest(connection, user, BULK_PROGRAM_ID, vault_name, ORACLE_USDC, SPOT_MARKET_USDC);
 

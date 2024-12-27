@@ -25,17 +25,17 @@ pub fn cancel_withdraw_request<'info>(
 ) -> ProgramResult {
     let clock = &Clock::get()?;
 
-    let mut iter = accounts.iter();
+    let mut account_info_iter = accounts.iter();
 
-    let vault_account = next_account_info(&mut iter)?;
-    let vault_depositor_account = next_account_info(&mut iter)?;
-    let authority = next_account_info(&mut iter)?;
+    let vault_account = next_account_info(&mut account_info_iter)?;
+    let vault_depositor_account = next_account_info(&mut account_info_iter)?;
+    let authority = next_account_info(&mut account_info_iter)?;
 
-    let drift_user = next_account_info(&mut iter)?;
-    let drift_user_stats = next_account_info(&mut iter)?;
-    let drift_state = next_account_info(&mut iter)?;
-    let drift_oracle = next_account_info(&mut iter)?;
-    let drift_spot_market = next_account_info(&mut iter)?;
+    let drift_user = next_account_info(&mut account_info_iter)?;
+    let drift_user_stats = next_account_info(&mut account_info_iter)?;
+    let drift_state = next_account_info(&mut account_info_iter)?;
+    let drift_oracle = next_account_info(&mut account_info_iter)?;
+    let drift_spot_market = next_account_info(&mut account_info_iter)?;
 
     log_accounts(&[
         (vault_account, "Vault"),

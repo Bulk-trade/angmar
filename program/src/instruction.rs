@@ -2,12 +2,6 @@ use borsh::BorshDeserialize;
 use solana_program::program_error::ProgramError;
 
 pub enum VaultInstruction {
-    InitializeVault {
-        vault_id: String,
-    },
-    InitializeDrift {
-        vault_id: String,
-    },
     InitializeDriftWithBulk {
         name: String,
         lock_in_period: u64,
@@ -24,14 +18,6 @@ pub enum VaultInstruction {
     Deposit {
         name: String,
         amount: u64,
-    },
-    DepositOld {
-        vault_id: String,
-        user_pubkey: String,
-        amount: u64,
-        fund_status: String,
-        bot_status: String,
-        market_index: u16,
     },
     WithdrawRequest {
         amount: u64,

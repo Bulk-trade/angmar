@@ -32,28 +32,28 @@ pub fn deposit<'info>(
 
     let clock = &Clock::get()?;
 
-    let mut iter = accounts.iter();
+    let mut account_info_iter = accounts.iter();
 
-    let vault_account = next_account_info(&mut iter)?;
-    let vault_depositor_account = next_account_info(&mut iter)?;
-    let authority = next_account_info(&mut iter)?;
-    let treasury = next_account_info(&mut iter)?;
+    let vault_account = next_account_info(&mut account_info_iter)?;
+    let vault_depositor_account = next_account_info(&mut account_info_iter)?;
+    let authority = next_account_info(&mut account_info_iter)?;
+    let treasury = next_account_info(&mut account_info_iter)?;
 
-    let drift_program = next_account_info(&mut iter)?;
-    let drift_user = next_account_info(&mut iter)?;
-    let drift_user_stats = next_account_info(&mut iter)?;
-    let drift_state = next_account_info(&mut iter)?;
-    let drift_spot_market_vault = next_account_info(&mut iter)?;
-    let drift_oracle = next_account_info(&mut iter)?;
-    let drift_spot_market = next_account_info(&mut iter)?;
+    let drift_program = next_account_info(&mut account_info_iter)?;
+    let drift_user = next_account_info(&mut account_info_iter)?;
+    let drift_user_stats = next_account_info(&mut account_info_iter)?;
+    let drift_state = next_account_info(&mut account_info_iter)?;
+    let drift_spot_market_vault = next_account_info(&mut account_info_iter)?;
+    let drift_oracle = next_account_info(&mut account_info_iter)?;
+    let drift_spot_market = next_account_info(&mut account_info_iter)?;
 
-    let user_token_account = next_account_info(&mut iter)?;
-    let vault_token_account = next_account_info(&mut iter)?;
-    let treasury_token_account = next_account_info(&mut iter)?;
-    let mint = next_account_info(&mut iter)?;
+    let user_token_account = next_account_info(&mut account_info_iter)?;
+    let vault_token_account = next_account_info(&mut account_info_iter)?;
+    let treasury_token_account = next_account_info(&mut account_info_iter)?;
+    let mint = next_account_info(&mut account_info_iter)?;
 
-    let token_program = next_account_info(&mut iter)?;
-    let system_program = next_account_info(&mut iter)?;
+    let token_program = next_account_info(&mut account_info_iter)?;
+    let system_program = next_account_info(&mut account_info_iter)?;
 
     log_accounts(&[
         (vault_account, "Vault"),
