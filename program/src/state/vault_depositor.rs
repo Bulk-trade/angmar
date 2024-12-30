@@ -9,11 +9,7 @@ use crate::{
     state::{VaultDepositorAction, VaultDepositorRecord},
 };
 use borsh::{BorshDeserialize, BorshSerialize};
-use drift::math::{
-    casting::Cast,
-    insurance::if_shares_to_vault_amount,
-    safe_math::SafeMath,
-};
+use drift::math::{casting::Cast, insurance::if_shares_to_vault_amount, safe_math::SafeMath};
 use solana_program::{
     account_info::AccountInfo, borsh0_10::try_from_slice_unchecked, entrypoint::ProgramResult, msg,
     program_error::ProgramError, program_pack::Sealed, pubkey::Pubkey,
@@ -112,8 +108,7 @@ impl VaultDepositor {
         now: i64,
     ) -> Result<(u64, u64), ProgramError> {
         custom_validate!(
-            vault.max_tokens == 0
-                || vault.max_tokens > vault_equity.safe_add(amount).map_err(wrap_drift_error)?,
+            vault.max_tokens == 0 || vault.max_tokens > vault_equity.saturating_add(amount),
             VaultErrorCode::VaultIsAtCapacity,
             "after deposit vault equity is {} > {}",
             vault_equity + amount,
@@ -149,14 +144,8 @@ impl VaultDepositor {
         vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
         vault.total_deposits = vault.total_deposits.saturating_add(amount);
         vault.net_deposits = vault.net_deposits.saturating_add(amount);
-        vault.total_shares = vault
-            .total_shares
-            .safe_add(new_shares)
-            .map_err(wrap_drift_error)?;
-        vault.user_shares = vault
-            .user_shares
-            .safe_add(new_shares)
-            .map_err(wrap_drift_error)?;
+        vault.total_shares = vault.total_shares.saturating_add(new_shares);
+        vault.user_shares = vault.user_shares.saturating_add(new_shares);
 
         msg!("Vault Deposit Record");
         let record = VaultDepositorRecord {
@@ -228,8 +217,7 @@ impl VaultDepositor {
 
         vault.total_withdraw_requested = vault
             .total_withdraw_requested
-            .safe_add(withdraw_amount)
-            .map_err(wrap_drift_error)?;
+            .saturating_add(withdraw_amount);
 
         msg!("Vault Withdraw Request Record");
         let record = VaultDepositorRecord {
@@ -271,8 +259,7 @@ impl VaultDepositor {
 
         vault.total_withdraw_requested = vault
             .total_withdraw_requested
-            .safe_sub(self.last_withdraw_request.value)
-            .map_err(wrap_drift_error)?;
+            .saturating_sub(self.last_withdraw_request.value);
 
         self.last_withdraw_request.reset(now)?;
 
@@ -344,13 +331,9 @@ impl VaultDepositor {
         msg!("Profit share: {}", profit_share);
 
         // Calculate total deductions and final amount
-        let total_deductions = management_fee
-            .checked_add(profit_share)
-            .ok_or(VaultErrorCode::MathError)?;
+        let total_deductions = management_fee.saturating_add(profit_share);
 
-        withdraw_amount = withdraw_amount
-            .checked_sub(total_deductions)
-            .ok_or(VaultErrorCode::InsufficientWithdraw)?;
+        withdraw_amount = withdraw_amount.saturating_sub(total_deductions);
 
         msg!("Total deductions: {}", total_deductions);
         msg!("Final withdraw amount: {}", withdraw_amount);
@@ -370,51 +353,28 @@ impl VaultDepositor {
             self.last_withdraw_request.shares
         );
 
-        self.profit_share_fee_paid = self
-            .profit_share_fee_paid
-            .safe_add(profit_share)
-            .map_err(wrap_drift_error)?;
+        self.profit_share_fee_paid = self.profit_share_fee_paid.saturating_add(profit_share);
 
-        self.vault_shares = self
-            .vault_shares
-            .safe_sub(shares)
-            .map_err(wrap_drift_error)?;
+        self.vault_shares = self.vault_shares.saturating_sub(shares);
 
         self.total_withdraws = self.total_withdraws.saturating_add(withdraw_amount);
-        self.net_deposits = self
-            .net_deposits
-            .safe_sub(withdraw_amount)
-            .map_err(wrap_drift_error)?;
+        self.net_deposits = self.net_deposits.saturating_sub(withdraw_amount);
 
         self.remove_shares(shares)?;
 
-        vault.manager_total_fee = vault
-            .manager_total_fee
-            .checked_add(management_fee)
-            .ok_or(VaultErrorCode::MathError)?;
+        vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
 
         vault.manager_total_profit_share = vault
             .manager_total_profit_share
-            .checked_add(profit_share)
-            .ok_or(VaultErrorCode::MathError)?;
+            .saturating_add(profit_share);
 
         vault.total_withdraws = vault.total_withdraws.saturating_add(withdraw_amount);
-        vault.net_deposits = vault
-            .net_deposits
-            .safe_sub(withdraw_amount.cast().map_err(wrap_drift_error)?)
-            .map_err(wrap_drift_error)?;
-        vault.total_shares = vault
-            .total_shares
-            .safe_sub(shares)
-            .map_err(wrap_drift_error)?;
-        vault.user_shares = vault
-            .user_shares
-            .safe_sub(shares)
-            .map_err(wrap_drift_error)?;
+        vault.net_deposits = vault.net_deposits.saturating_sub(withdraw_amount);
+        vault.total_shares = vault.total_shares.saturating_sub(shares);
+        vault.user_shares = vault.user_shares.saturating_sub(shares);
         vault.total_withdraw_requested = vault
             .total_withdraw_requested
-            .safe_sub(self.last_withdraw_request.value)
-            .map_err(wrap_drift_error)?;
+            .saturating_sub(self.last_withdraw_request.value);
 
         self.last_withdraw_request.reset(now)?;
 
@@ -460,11 +420,7 @@ impl VaultDepositor {
                 .map_err(wrap_drift_error)?;
 
         // Calculate total profit/loss
-        let total_profit = total_amount
-            .cast::<i64>()
-            .map_err(wrap_drift_error)?
-            .safe_sub(self.net_deposits.cast::<i64>().map_err(wrap_drift_error)?)
-            .map_err(wrap_drift_error)?;
+        let total_profit = total_amount.saturating_sub(self.net_deposits);
 
         // Only take profit share if profitable
         if total_profit > 0 {

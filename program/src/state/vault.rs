@@ -170,8 +170,7 @@ impl Vault {
         now: i64,
     ) -> Result<(), ProgramError> {
         custom_validate!(
-            self.max_tokens == 0
-                || self.max_tokens > vault_equity.safe_add(amount).map_err(wrap_drift_error)?,
+            self.max_tokens == 0 || self.max_tokens > vault_equity.saturating_add(amount),
             VaultErrorCode::VaultIsAtCapacity,
             "after deposit vault equity is {} > {}",
             vault_equity + amount,
@@ -191,10 +190,7 @@ impl Vault {
         self.net_deposits = self.net_deposits.saturating_add(amount);
         self.manager_net_deposits = self.manager_net_deposits.saturating_add(amount);
 
-        self.total_shares = self
-            .total_shares
-            .safe_add(new_shares)
-            .map_err(wrap_drift_error)?;
+        self.total_shares = self.total_shares.saturating_add(new_shares);
         let vault_shares_after = self.get_manager_shares();
 
         msg!("Vault Deposit Record");

@@ -1,5 +1,5 @@
 use crate::error::wrap_drift_error;
-use crate::{error::VaultErrorCode, custom_validate};
+use crate::{custom_validate, error::VaultErrorCode};
 use borsh::{BorshDeserialize, BorshSerialize};
 use drift::math::safe_math::SafeMath;
 use solana_program::entrypoint::ProgramResult;
@@ -68,7 +68,7 @@ impl WithdrawRequest {
     }
 
     pub fn check_redeem_period_finished(&self, vault: &Vault, now: i64) -> ProgramResult {
-        let time_since_withdraw_request = now.safe_sub(self.ts).map_err(wrap_drift_error)?;
+        let time_since_withdraw_request = now.saturating_sub(self.ts);
 
         custom_validate!(
             time_since_withdraw_request >= vault.redeem_period as i64,
