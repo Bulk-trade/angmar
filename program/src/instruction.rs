@@ -33,10 +33,13 @@ pub enum VaultInstruction {
         name: String,
         amount: u64,
     },
+    ManagerWithdraw {
+        amount: u64,
+    },
 }
 
 #[derive(BorshDeserialize)]
-struct InitVaultPayload {
+struct BaseVaultPayload {
     name: String,
     lock_in_period: u64,
     redeem_period: u64,
@@ -74,7 +77,7 @@ impl VaultInstruction {
             .ok_or(ProgramError::InvalidInstructionData)?;
         Ok(match variant {
             0 => {
-                let payload = InitVaultPayload::try_from_slice(rest).unwrap();
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
                 Self::InitializeDriftWithBulk {
                     name: payload.name,
                     lock_in_period: payload.lock_in_period,
@@ -89,7 +92,23 @@ impl VaultInstruction {
                 }
             }
             1 => Self::InitializeVaultDepositor {},
+
             2 => {
+                let payload = DepositPayload::try_from_slice(rest).unwrap();
+                Self::Deposit {
+                    name: payload.name,
+                    amount: payload.amount,
+                }
+            }
+            3 => {
+                let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
+                Self::WithdrawRequest {
+                    amount: payload.amount,
+                }
+            }
+            4 => Self::CancelWithdrawRequest {},
+            5 => Self::Withdraw {},
+            6 => {
                 let payload = UpdateDelegatePayload::try_from_slice(rest).unwrap();
                 Self::UpdateDelegate {
                     name: payload.name,
@@ -97,25 +116,16 @@ impl VaultInstruction {
                     sub_account: payload.sub_account,
                 }
             }
-            3 => {
-                let payload = DepositPayload::try_from_slice(rest).unwrap();
-                Self::Deposit {
-                    name: payload.name,
-                    amount: payload.amount,
-                }
-            }
-            4 => {
-                let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
-                Self::WithdrawRequest {
-                    amount: payload.amount,
-                }
-            }
-            5 => Self::CancelWithdrawRequest {},
-            6 => Self::Withdraw {},
             7 => {
                 let payload = DepositPayload::try_from_slice(rest).unwrap();
                 Self::ManagerDeposit {
                     name: payload.name,
+                    amount: payload.amount,
+                }
+            }
+            8 => {
+                let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
+                Self::ManagerWithdraw {
                     amount: payload.amount,
                 }
             }

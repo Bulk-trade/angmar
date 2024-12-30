@@ -117,11 +117,8 @@ impl Vault {
         Ok(())
     }
 
-    pub fn get_manager_shares(&self) -> Result<u128, ProgramError> {
-        Ok(self
-            .total_shares
-            .safe_sub(self.user_shares)
-            .map_err(wrap_drift_error)?)
+    pub fn get_manager_shares(&self) -> u128 {
+        self.total_shares.saturating_sub(self.user_shares)
     }
 
     pub fn calculate_total_equity(
@@ -181,7 +178,7 @@ impl Vault {
             self.max_tokens
         )?;
 
-        let vault_shares_before = self.get_manager_shares()?;
+        let vault_shares_before = self.get_manager_shares();
         let total_vault_shares_before = self.total_shares;
         let user_vault_shares_before = self.user_shares;
 
@@ -198,7 +195,7 @@ impl Vault {
             .total_shares
             .safe_add(new_shares)
             .map_err(wrap_drift_error)?;
-        let vault_shares_after = self.get_manager_shares()?;
+        let vault_shares_after = self.get_manager_shares();
 
         msg!("Vault Deposit Record");
         let record = VaultDepositorRecord {
@@ -206,6 +203,65 @@ impl Vault {
             vault: self.pubkey,
             depositor_authority: self.manager,
             action: VaultDepositorAction::Deposit,
+            amount,
+            spot_market_index: self.spot_market_index,
+            vault_equity_before: vault_equity,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after,
+            total_vault_shares_after: self.total_shares,
+            user_vault_shares_after: self.user_shares,
+            profit_share: self.profit_share,
+            profit_share_amount: 0,
+            management_fee: self.management_fee,
+            management_fee_amount: 0,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok(())
+    }
+
+    pub fn manager_withdraw(
+        &mut self,
+        amount: u64,
+        vault_equity: u64,
+        now: i64,
+    ) -> Result<(), ProgramError> {
+        let vault_shares_before = self.get_manager_shares();
+        let total_vault_shares_before = self.total_shares;
+        let user_vault_shares_before = self.user_shares;
+
+        let shares = calculate_amount_to_shares(amount, self.total_shares, vault_equity)?;
+
+        custom_validate!(
+            shares > 0,
+            VaultErrorCode::InvalidVaultWithdrawSize,
+            "Requested shares = 0"
+        )?;
+
+        custom_validate!(
+            vault_shares_before >= shares,
+            VaultErrorCode::InsufficientVaultShares
+        )?;
+
+        self.total_withdraws = self.total_withdraws.saturating_add(amount);
+        self.manager_total_withdraws = self.manager_total_withdraws.saturating_add(amount);
+        self.net_deposits = self.net_deposits.saturating_sub(amount);
+        self.manager_net_deposits = self.manager_net_deposits.saturating_sub(amount);
+
+        self.total_shares = self.total_shares.saturating_sub(shares);
+        let vault_shares_after = self.get_manager_shares();
+
+        msg!("Vault Deposit Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: self.pubkey,
+            depositor_authority: self.manager,
+            action: VaultDepositorAction::Withdraw,
             amount,
             spot_market_index: self.spot_market_index,
             vault_equity_before: vault_equity,

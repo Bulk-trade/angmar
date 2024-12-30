@@ -173,7 +173,7 @@ pub fn withdraw<'info>(
 }
 
 /// Executes withdraw from Drift protocol
-fn drift_withdraw<'a>(
+pub fn drift_withdraw<'a>(
     vault: &Vault,
     amount: u64,
     // Individual accounts

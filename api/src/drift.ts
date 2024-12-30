@@ -357,6 +357,96 @@ export async function getDriftWithdrawKeys(
     ]
 }
 
+
+export async function getDriftManagerWithdrawKeys(
+    connection: Connection,
+    signer: Keypair,
+    programId: PublicKey,
+    userTokenAccount: PublicKey,
+    vaultName: string,
+    spotMarket: PublicKey,
+    spotMarketVault: PublicKey,
+    oracle: PublicKey,
+    mint: PublicKey
+): Promise<AccountMeta[]> {
+
+    const vault = getVaultPDA(vaultName, programId);
+    const [user, userStats] = getDriftUser(vault);
+    const state = await getDriftStateAccountPublicKey(DRIFT_PROGRAM);
+
+    const vaultTokenAccount = (await getOrCreateAssociatedTokenAccount(
+        connection,
+        signer,
+        mint,
+        vault,
+        true
+    )).address;
+
+    return [
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userStats,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: state,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarketVault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: oracle,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: spotMarket,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: new PublicKey('JCNCMFXo5M5qwUPg2Utu1u6YWp3MbygxqBsBeXXJfrw'),
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: userTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: vaultTokenAccount,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: mint,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: TOKEN_PROGRAM_ID,
+            isSigner: false,
+            isWritable: false,
+        },
+    ]
+}
+
+
 export function getDriftUser(vault: PublicKey, subAccountId: number = 0): PublicKey[] {
     return [
         getUserAccountPublicKeySync(DRIFT_PROGRAM, vault),

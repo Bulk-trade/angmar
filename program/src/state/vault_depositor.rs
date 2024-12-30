@@ -11,7 +11,7 @@ use crate::{
 use borsh::{BorshDeserialize, BorshSerialize};
 use drift::math::{
     casting::Cast,
-    insurance::{if_shares_to_vault_amount, vault_amount_to_if_shares},
+    insurance::if_shares_to_vault_amount,
     safe_math::SafeMath,
 };
 use solana_program::{
@@ -193,8 +193,7 @@ impl VaultDepositor {
         vault: &mut Vault,
         now: i64,
     ) -> ProgramResult {
-        let shares = vault_amount_to_if_shares(withdraw_amount, vault.total_shares, vault_equity)
-            .map_err(wrap_drift_error)?;
+        let shares = calculate_amount_to_shares(withdraw_amount, vault.total_shares, vault_equity)?;
 
         custom_validate!(
             shares > 0,
@@ -373,7 +372,7 @@ impl VaultDepositor {
 
         self.profit_share_fee_paid = self
             .profit_share_fee_paid
-            .safe_add(profit_share.cast().map_err(wrap_drift_error)?)
+            .safe_add(profit_share)
             .map_err(wrap_drift_error)?;
 
         self.vault_shares = self
@@ -384,7 +383,7 @@ impl VaultDepositor {
         self.total_withdraws = self.total_withdraws.saturating_add(withdraw_amount);
         self.net_deposits = self
             .net_deposits
-            .safe_sub(withdraw_amount.cast().map_err(wrap_drift_error)?)
+            .safe_sub(withdraw_amount)
             .map_err(wrap_drift_error)?;
 
         self.remove_shares(shares)?;

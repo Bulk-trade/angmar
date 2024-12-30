@@ -12,6 +12,8 @@
     ],
     "module": "commonjs",
     "target": "es6",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noUnusedLocals": true,       // Enable warning for unused local variables
+    "noUnusedParameters": true    // Enable warning for unused parameters
   }
 }

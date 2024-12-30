@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerDeposit, requestWithdraw, updateDelegate, withdraw } from './vault';
+import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerDeposit, managerWithdraw, requestWithdraw, updateDelegate, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -137,18 +137,18 @@ app.listen(PORT, async () => {
         envVariableName: "PRIVATE_KEY_USER",
     });
 
-    const vault_name = 'bulk1';
+    const vault_name = 'bulk';
 
-    console.log('Admin SIGNER', manager.publicKey.toString());
+    console.log('Manager SIGNER', manager.publicKey.toString());
     console.log('User SIGNER', user.publicKey.toString());
 
     // await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 30, 1 * 30, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
     // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
 
-     await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+    // await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
-    // await updateDelegate(connection, admin, BULK_PROGRAM_ID, vault_name, user.publicKey.toString(), 0)
+    // await updateDelegate(connection, manager, BULK_PROGRAM_ID, vault_name, user.publicKey.toString(), 0)
 
     // await requestWithdraw(connection, user, BULK_PROGRAM_ID, vault_name, 900000, ORACLE_USDC, SPOT_MARKET_USDC);
 
@@ -157,5 +157,8 @@ app.listen(PORT, async () => {
     // await withdraw(connection, user, BULK_PROGRAM_ID, vault_name, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC,  USDC_MINT_LOCAL);
 
     // await managerDeposit(connection, manager, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+
+    // await managerWithdraw(connection, manager, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+
 });
 
