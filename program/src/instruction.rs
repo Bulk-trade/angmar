@@ -36,6 +36,19 @@ pub enum VaultInstruction {
     ManagerWithdraw {
         amount: u64,
     },
+    CollectFees {
+        amount: u64,
+    },
+    UpdateVault {
+        lock_in_period: u64,
+        redeem_period: u64,
+        max_tokens: u64,
+        management_fee: u64,
+        min_deposit_amount: u64,
+        profit_share: u32,
+        hurdle_rate: u32,
+        permissioned: bool,
+    },
 }
 
 #[derive(BorshDeserialize)]
@@ -127,6 +140,25 @@ impl VaultInstruction {
                 let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
                 Self::ManagerWithdraw {
                     amount: payload.amount,
+                }
+            }
+            9 => {
+                let payload = WithdrawRequestPayload::try_from_slice(rest).unwrap();
+                Self::CollectFees {
+                    amount: payload.amount,
+                }
+            }
+            10 => {
+                let payload = BaseVaultPayload::try_from_slice(rest).unwrap();
+                Self::UpdateVault {
+                    lock_in_period: payload.lock_in_period,
+                    redeem_period: payload.redeem_period,
+                    max_tokens: payload.max_tokens,
+                    management_fee: payload.management_fee,
+                    min_deposit_amount: payload.min_deposit_amount,
+                    profit_share: payload.profit_share,
+                    hurdle_rate: payload.hurdle_rate,
+                    permissioned: payload.permissioned,
                 }
             }
             _ => return Err(ProgramError::InvalidInstructionData),

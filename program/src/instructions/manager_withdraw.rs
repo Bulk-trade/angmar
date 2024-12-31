@@ -14,7 +14,7 @@ use solana_program::{
 };
 
 use crate::{
-    common::{deserialize_zero_copy, log_accounts, transfer_to_user},
+    common::{deserialize_zero_copy, log_accounts, transfer_to_user_from_vault},
     error::wrap_drift_error,
     instructions::drift_withdraw,
     state::Vault,
@@ -126,7 +126,7 @@ pub fn manager_withdraw<'info>(
         drift_spot_market,
     )?;
 
-    transfer_to_user(
+    transfer_to_user_from_vault(
         &vault,
         amount,
         token_program,

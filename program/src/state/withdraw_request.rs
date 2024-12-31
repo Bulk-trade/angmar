@@ -1,7 +1,5 @@
-use crate::error::wrap_drift_error;
 use crate::{custom_validate, error::VaultErrorCode};
 use borsh::{BorshDeserialize, BorshSerialize};
-use drift::math::safe_math::SafeMath;
 use solana_program::entrypoint::ProgramResult;
 use solana_program::msg;
 use solana_program::sysvar::slot_history::ProgramError;

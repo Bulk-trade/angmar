@@ -1,8 +1,7 @@
 use crate::instruction::VaultInstruction;
 use crate::instructions::manager_deposit::manager_deposit;
 use crate::instructions::{
-    cancel_withdraw_request, deposit, initialize_drift_vault_with_bulk, initialize_vault_depositor,
-    manager_withdraw, request_withdraw, update_vault_delegate, withdraw, VaultParams,
+    cancel_withdraw_request, deposit, initialize_drift_vault_with_bulk, initialize_vault_depositor, manager_collect_fees, manager_withdraw, request_withdraw, update_vault, update_vault_delegate, withdraw, UpdateVaultParams, VaultParams
 };
 use solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey};
 
@@ -60,5 +59,31 @@ pub fn process_instruction<'a>(
         VaultInstruction::ManagerWithdraw { amount } => {
             manager_withdraw(program_id, accounts, amount)
         }
+        VaultInstruction::CollectFees { amount } => {
+            manager_collect_fees(program_id, accounts, amount)
+        }
+        VaultInstruction::UpdateVault {
+            lock_in_period,
+            redeem_period,
+            max_tokens,
+            management_fee,
+            min_deposit_amount,
+            profit_share,
+            hurdle_rate,
+            permissioned,
+        } => update_vault(
+            program_id,
+            accounts,
+            &UpdateVaultParams {
+                lock_in_period,
+                redeem_period,
+                max_tokens,
+                management_fee,
+                min_deposit_amount,
+                profit_share,
+                hurdle_rate,
+                permissioned,
+            },
+        ),
     }
 }

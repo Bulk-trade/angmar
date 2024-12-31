@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::{
     common::{
         bytes32_to_string, deserialize_zero_copy, log_accounts, transfer_fees_from_vault,
-        transfer_to_user,
+        transfer_to_user_from_vault,
     },
     drift::{WithdrawIxArgs, WithdrawIxData},
     error::wrap_drift_error,
@@ -159,7 +159,7 @@ pub fn withdraw<'info>(
         mint,
     )?;
 
-    transfer_to_user(
+    transfer_to_user_from_vault(
         &vault,
         user_withdraw_amount,
         token_program,
@@ -191,7 +191,7 @@ pub fn drift_withdraw<'a>(
 ) -> ProgramResult {
     msg!("Withdrawing from Drift to Vault...");
 
-     let accounts_meta = vec![
+    let accounts_meta = vec![
         AccountMeta {
             pubkey: *drift_state.key,
             is_signer: false,

@@ -7,6 +7,7 @@ pub mod manager_deposit;
 pub mod manager_withdraw;
 pub mod request_withdraw;
 pub mod update_delegate;
+pub mod update_vault;
 pub mod withdraw;
 
 pub use cancel_withdraw_request::*;
@@ -17,4 +18,5 @@ pub use manager_collect_fees::*;
 pub use manager_withdraw::*;
 pub use request_withdraw::*;
 pub use update_delegate::*;
+pub use update_vault::*;
 pub use withdraw::*;

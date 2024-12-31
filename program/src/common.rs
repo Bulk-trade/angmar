@@ -222,30 +222,30 @@ pub fn transfer_to_vault<'a>(
     )
 }
 
-pub fn transfer_to_user<'a>(
+pub fn transfer_to_user_from_vault<'a>(
     vault: &Vault,
     amount: u64,
     token_program: &AccountInfo<'a>,
-    user_token_account: &AccountInfo<'a>,
-    vault_token_account: &AccountInfo<'a>,
-    vault_account: &AccountInfo<'a>,
+    destination_token_account: &AccountInfo<'a>,
+    source_token_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
     mint: &AccountInfo<'a>,
 ) -> ProgramResult {
-    msg!("Transfering to Vault Pda...");
+    msg!("Transfering to User....");
     invoke_signed(
         &instruction::transfer(
             &token_program.key,
-            &vault_token_account.key,
-            &user_token_account.key,
-            &vault_account.key,
-            &[vault_account.key],
+            &source_token_account.key,
+            &destination_token_account.key,
+            &authority.key,
+            &[authority.key],
             amount,
         )?,
         &[
             mint.clone(),
-            vault_token_account.clone(),
-            user_token_account.clone(),
-            vault_account.clone(),
+            source_token_account.clone(),
+            destination_token_account.clone(),
+            authority.clone(),
             token_program.clone(),
         ],
         &[&[
@@ -253,5 +253,36 @@ pub fn transfer_to_user<'a>(
             bytes32_to_string(vault.name).as_ref(),
             &[vault.bump],
         ]],
+    )
+}
+
+pub fn transfer_to_user_from_treasury<'a>(
+    amount: u64,
+    token_program: &AccountInfo<'a>,
+    destination_token_account: &AccountInfo<'a>,
+    source_token_account: &AccountInfo<'a>,
+    authority: &AccountInfo<'a>,
+    mint: &AccountInfo<'a>,
+    signature_seeds: [&[u8]; 3],
+) -> ProgramResult {
+    msg!("Transfering to User....");
+
+    invoke_signed(
+        &instruction::transfer(
+            &token_program.key,
+            &source_token_account.key,
+            &destination_token_account.key,
+            &authority.key,
+            &[authority.key],
+            amount,
+        )?,
+        &[
+            mint.clone(),
+            source_token_account.clone(),
+            destination_token_account.clone(),
+            authority.clone(),
+            token_program.clone(),
+        ],
+        &[&signature_seeds],
     )
 }

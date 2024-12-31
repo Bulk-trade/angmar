@@ -1,16 +1,6 @@
 import { struct, u8, str, u64, u16, bool, u32 } from "@coral-xyz/borsh";
 
-export const vaultInstructionLayout = struct([
-    u8("variant"),
-    str("vault_id"),
-    str("user_pubkey"),
-    u64("amount"),
-    str("fund_status"),
-    str("bot_status"),
-    u16("market_index"),
-]);
-
-export const initVaultInstuctionLayout = struct([
+export const baseVaultInstuctionLayout = struct([
     u8("variant"),
     str("name"),
     u64("lock_in_period"),

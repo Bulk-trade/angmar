@@ -34,7 +34,5 @@ pub enum VaultDepositorAction {
     WithdrawRequest,
     CancelWithdrawRequest,
     Withdraw,
-    FeePayment,
-    TokenizeShares,
-    RedeemTokens,
+    CollectFees,
 }

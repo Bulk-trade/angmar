@@ -142,6 +142,7 @@ impl VaultDepositor {
         self.deposits.push(DepositInfo::new(now, new_shares));
 
         vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
+        vault.manager_total_net_fee = vault.manager_total_net_fee.saturating_add(management_fee);
         vault.total_deposits = vault.total_deposits.saturating_add(amount);
         vault.net_deposits = vault.net_deposits.saturating_add(amount);
         vault.total_shares = vault.total_shares.saturating_add(new_shares);
@@ -263,7 +264,7 @@ impl VaultDepositor {
 
         self.last_withdraw_request.reset(now)?;
 
-        msg!("Vault Withdraw Request Record");
+        msg!("Vault Cancel Withdraw Request Record");
         let record = VaultDepositorRecord {
             ts: now,
             vault: vault.pubkey,
@@ -363,10 +364,10 @@ impl VaultDepositor {
         self.remove_shares(shares)?;
 
         vault.manager_total_fee = vault.manager_total_fee.saturating_add(management_fee);
-
         vault.manager_total_profit_share = vault
             .manager_total_profit_share
             .saturating_add(profit_share);
+        vault.manager_total_net_fee = vault.manager_total_net_fee.saturating_add(total_deductions);
 
         vault.total_withdraws = vault.total_withdraws.saturating_add(withdraw_amount);
         vault.net_deposits = vault.net_deposits.saturating_sub(withdraw_amount);

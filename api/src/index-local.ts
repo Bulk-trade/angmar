@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerDeposit, managerWithdraw, requestWithdraw, updateDelegate, withdraw } from './vault';
+import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerCollectFees, managerDeposit, managerWithdraw, requestWithdraw, updateDelegate, updateVault, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -159,6 +159,11 @@ app.listen(PORT, async () => {
     // await managerDeposit(connection, manager, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
     // await managerWithdraw(connection, manager, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
+
+    // await managerCollectFees(connection, manager, BULK_PROGRAM_ID, vault_name, 10000, USDC_MINT_LOCAL);
+
+    await updateVault(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 60, 1 * 60, 10000 * 1_000_000, 10000, 1_000_000, 10_000, 0, false); //1% fees 1% profit share
+
 
 });
 

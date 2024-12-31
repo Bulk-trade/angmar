@@ -8,6 +8,7 @@ use drift::state::perp_market_map::PerpMarketMap;
 use drift::state::spot_market_map::SpotMarketMap;
 use drift::state::user::User;
 use drift::validate;
+use serde::{Deserialize, Serialize};
 use solana_program::account_info::AccountInfo;
 use solana_program::borsh0_10::try_from_slice_unchecked;
 use solana_program::entrypoint::ProgramResult;
@@ -19,10 +20,10 @@ use std::result::Result;
 use crate::common::{calculate_amount_to_shares, log_data, log_params};
 use crate::constants::PERCENTAGE_PRECISION_U64;
 use crate::custom_validate;
-use crate::error::{wrap_drift_error, VaultErrorCode};
+use crate::error::VaultErrorCode;
 use crate::state::{VaultDepositorAction, VaultDepositorRecord};
 
-#[derive(BorshSerialize, BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct Vault {
     /// The name of the vault. Vault pubkey is derived from this name.
     pub name: [u8; 32],
@@ -79,6 +80,10 @@ pub struct Vault {
     pub manager_total_fee: u64,
     /// Total profit share accrued by the manager
     pub manager_total_profit_share: u64,
+    /// Total management fee withdraws
+    pub manager_fee_withdraws: u64,
+    /// The net total fee for the manager
+    pub manager_total_net_fee: u64,
     /// The minimum deposit amount
     pub min_deposit_amount: u64,
     /// The base 10 exponent of the shares (given massive share inflation can occur at near zero vault equity)
@@ -113,7 +118,7 @@ impl Vault {
     }
 
     pub fn save(vault: &Vault, vault_account: &AccountInfo) -> ProgramResult {
-        vault.serialize(&mut &mut vault_account.data.borrow_mut()[..])?;
+        BorshSerialize::serialize(vault, &mut &mut vault_account.data.borrow_mut()[..])?;
         Ok(())
     }
 
@@ -193,7 +198,7 @@ impl Vault {
         self.total_shares = self.total_shares.saturating_add(new_shares);
         let vault_shares_after = self.get_manager_shares();
 
-        msg!("Vault Deposit Record");
+        msg!("Vault Manager Deposit Record");
         let record = VaultDepositorRecord {
             ts: now,
             vault: self.pubkey,
@@ -252,7 +257,7 @@ impl Vault {
         self.total_shares = self.total_shares.saturating_sub(shares);
         let vault_shares_after = self.get_manager_shares();
 
-        msg!("Vault Deposit Record");
+        msg!("Vault Manager Withdraw Record");
         let record = VaultDepositorRecord {
             ts: now,
             vault: self.pubkey,
@@ -265,6 +270,53 @@ impl Vault {
             user_vault_shares_before,
             total_vault_shares_before,
             vault_shares_after,
+            total_vault_shares_after: self.total_shares,
+            user_vault_shares_after: self.user_shares,
+            profit_share: self.profit_share,
+            profit_share_amount: 0,
+            management_fee: self.management_fee,
+            management_fee_amount: 0,
+        };
+
+        log_data(&record)?;
+
+        log_params(&record);
+
+        Ok(())
+    }
+
+    pub fn manager_collect_fees(&mut self, amount: u64, now: i64) -> Result<(), ProgramError> {
+        let vault_shares_before = self.get_manager_shares();
+        let total_vault_shares_before = self.total_shares;
+        let user_vault_shares_before = self.user_shares;
+
+        custom_validate!(
+            amount > 0,
+            VaultErrorCode::InvalidVaultWithdrawSize,
+            "Requested amount = 0"
+        )?;
+
+        custom_validate!(
+            self.manager_total_net_fee > amount,
+            VaultErrorCode::InvalidVaultWithdrawSize
+        )?;
+
+        self.manager_total_withdraws = self.manager_total_withdraws.saturating_add(amount);
+        self.manager_total_net_fee = self.manager_total_net_fee.saturating_sub(amount);
+
+        msg!("Vault Collect Fees Record");
+        let record = VaultDepositorRecord {
+            ts: now,
+            vault: self.pubkey,
+            depositor_authority: self.manager,
+            action: VaultDepositorAction::CollectFees,
+            amount,
+            spot_market_index: self.spot_market_index,
+            vault_equity_before: 0,
+            vault_shares_before,
+            user_vault_shares_before,
+            total_vault_shares_before,
+            vault_shares_after: self.get_manager_shares(),
             total_vault_shares_after: self.total_shares,
             user_vault_shares_after: self.user_shares,
             profit_share: self.profit_share,
