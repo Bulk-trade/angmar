@@ -198,3 +198,55 @@ impl UpdateUserDelegateIxData {
         Ok(data)
     }
 }
+
+pub const UPDATE_USER_REDUCE_ONLY_IX_DISCM: [u8; 8] = [
+    199,
+    71,
+    42,
+    67,
+    144,
+    19,
+    86,
+    109,
+];
+#[derive(BorshDeserialize, BorshSerialize, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct UpdateUserReduceOnlyIxArgs {
+    pub sub_account_id: u16,
+    pub reduce_only: bool,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct UpdateUserReduceOnlyIxData(pub UpdateUserReduceOnlyIxArgs);
+impl From<UpdateUserReduceOnlyIxArgs> for UpdateUserReduceOnlyIxData {
+    fn from(args: UpdateUserReduceOnlyIxArgs) -> Self {
+        Self(args)
+    }
+}
+impl UpdateUserReduceOnlyIxData {
+    pub fn deserialize(buf: &[u8]) -> std::io::Result<Self> {
+        let mut reader = buf;
+        let mut maybe_discm = [0u8; 8];
+        reader.read_exact(&mut maybe_discm)?;
+        if maybe_discm != UPDATE_USER_REDUCE_ONLY_IX_DISCM {
+            return Err(
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "discm does not match. Expected: {:?}. Received: {:?}",
+                        UPDATE_USER_REDUCE_ONLY_IX_DISCM, maybe_discm
+                    ),
+                ),
+            );
+        }
+        Ok(Self(UpdateUserReduceOnlyIxArgs::deserialize(&mut reader)?))
+    }
+    pub fn serialize<W: std::io::Write>(&self, mut writer: W) -> std::io::Result<()> {
+        writer.write_all(&UPDATE_USER_REDUCE_ONLY_IX_DISCM)?;
+        self.0.serialize(&mut writer)
+    }
+    pub fn try_to_vec(&self) -> std::io::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        self.serialize(&mut data)?;
+        Ok(data)
+    }
+}

@@ -1274,3 +1274,93 @@ export async function updateVault(
     // Handle the transaction response
     handleTransactionResponse(transactionResponse, signature);
 }
+
+export async function resetDelegate(
+    connection: Connection,
+    manager: Keypair,
+    programId: PublicKey,
+    vault_name: string,
+) {
+
+    // Log the input parameters
+    console.log('Received resetDelegate parameters:', { vault_name });
+
+    let buffer = Buffer.alloc(1000);
+    baseVaultInstuctionLayout.encode(
+        {
+            variant: 11
+        },
+        buffer
+    );
+
+    buffer = buffer.subarray(0, baseVaultInstuctionLayout.getSpan(buffer));
+
+
+    const [vault] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vault"), Buffer.from(vault_name)],
+        programId
+    );
+
+    console.log("Vault PDA is:", vault.toBase58());
+
+    const [user] = getDriftUser(vault);
+
+    const keys: AccountMeta[] = [
+        {
+            pubkey: manager.publicKey,
+            isSigner: true,
+            isWritable: false,
+        },
+        {
+            pubkey: vault,
+            isSigner: false,
+            isWritable: true,
+        },
+        {
+            pubkey: DRIFT_PROGRAM,
+            isSigner: false,
+            isWritable: false,
+        },
+        {
+            pubkey: user,
+            isSigner: false,
+            isWritable: true,
+        },
+    ];
+
+    console.log(`Keys Length: ${keys.length}`);
+
+    const driftIx = new TransactionInstruction({
+        programId: programId,
+        data: buffer,
+        keys,
+    });
+
+    // Get the latest blockhash for the transaction
+    const blockhashResult = await connection.getLatestBlockhash({ commitment: "confirmed" });
+
+    const transaction = new VersionedTransaction(
+        new TransactionMessage({
+            payerKey: manager.publicKey,
+            recentBlockhash: blockhashResult.blockhash,
+            instructions: [computeBudgetInstruction, computePriceInstruction, driftIx],
+        }).compileToV0Message()
+    );
+
+    transaction.sign([manager]);
+
+    // Get the transaction signature
+    const signature = getSignature(transaction);
+
+    // Serialize the transaction and get the recent blockhash
+    const serializedTransaction = transaction.serialize();
+
+    const transactionResponse = await versionedTransactionSenderAndConfirmationWaiter({
+        connection,
+        serializedTransaction,
+        blockhashWithExpiryBlockHeight: blockhashResult,
+    });
+
+    // Handle the transaction response
+    handleTransactionResponse(transactionResponse, signature);
+}

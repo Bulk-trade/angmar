@@ -10,7 +10,7 @@ import {
     initializeKeypair,
 } from "@solana-developers/helpers";
 import cors from 'cors';
-import { cancelWithdrawRequest, deposit, initializeDriftWithBulk, initializeVaultDepositor, managerCollectFees, managerDeposit, managerWithdraw, requestWithdraw, updateDelegate, updateVault, withdraw } from './vault';
+import { deposit, initializeDriftWithBulk, initializeVaultDepositor, resetDelegate, updateDelegate, updateVault, withdraw } from './vault';
 import { getTokenBalance } from './utils/get-balance';
 
 dotenv.config();
@@ -118,8 +118,6 @@ app.post('/update-delegate', async (req, res) => {
     }
 });
 
-
-
 const PORT = process.env.PORT || 4001;
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
@@ -144,7 +142,7 @@ app.listen(PORT, async () => {
 
     // await initializeDriftWithBulk(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 30, 1 * 30, 1000 * 1_000_000, 10000, 1_000_000, 10_000, 0, 0, false); //1% fees 1% profit share
 
-    // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name)
+    // await initializeVaultDepositor(connection, user, BULK_PROGRAM_ID, vault_name);
 
     // await deposit(connection, user, BULK_PROGRAM_ID, vault_name, 1000000, SPOT_MARKET_VAULT_USDC, ORACLE_USDC, SPOT_MARKET_USDC, USDC_MINT_LOCAL);
 
@@ -162,7 +160,9 @@ app.listen(PORT, async () => {
 
     // await managerCollectFees(connection, manager, BULK_PROGRAM_ID, vault_name, 10000, USDC_MINT_LOCAL);
 
-    await updateVault(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 60, 1 * 60, 10000 * 1_000_000, 10000, 1_000_000, 10_000, 0, false); //1% fees 1% profit share
+    // await updateVault(connection, manager, BULK_PROGRAM_ID, USDC_MINT_LOCAL, vault_name, 1 * 60, 1 * 60, 10000 * 1_000_000, 10000, 1_000_000, 10_000, 0, false); //1% fees 1% profit share
+
+    // await resetDelegate(connection, manager, BULK_PROGRAM_ID, vault_name);
 
 
 });

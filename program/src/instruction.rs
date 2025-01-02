@@ -49,6 +49,7 @@ pub enum VaultInstruction {
         hurdle_rate: u32,
         permissioned: bool,
     },
+    ResetDelegate {},
 }
 
 #[derive(BorshDeserialize)]
@@ -161,6 +162,7 @@ impl VaultInstruction {
                     permissioned: payload.permissioned,
                 }
             }
+            11 => Self::ResetDelegate {},
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

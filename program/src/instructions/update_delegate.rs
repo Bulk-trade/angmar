@@ -55,10 +55,10 @@ pub fn update_vault_delegate<'a>(
     let delegate_pubkey = match Pubkey::from_str(&delegate) {
         Ok(pubkey) => pubkey,
         Err(_) => {
-            panic!("Delegate string is not a valid Pubkey: {}", delegate);
+            msg!("Delegate string is not a valid Pubkey: {}", delegate);
+            return Err(ProgramError::InvalidArgument);
         }
     };
-
 
     // Update vault state
     let mut vault = Vault::get(vault_account);
